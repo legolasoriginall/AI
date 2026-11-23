@@ -6,6 +6,11 @@
   <title>دستیار دیجیتال — دستیار هوش مصنوعی شخصی</title>
   <meta name="description" content="دستیار هوش مصنوعی شخصی فارسی‌زبان: آفلاین با Ollama یا آنلاین با Gemini و API سازگار با OpenAI، با ابزار فایل و شل، حافظهٔ محلی و رابط وب فارسی." />
   <meta name="theme-color" content="#0b0d13" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="دستیار دیجیتال — دستیار هوش مصنوعی شخصی" />
+  <meta property="og:description" content="یک عامل فارسی‌زبان که فایل می‌سازد، دستور اجرا می‌کند و حافظهٔ محلی دارد؛ آفلاین با Ollama یا آنلاین با هر API سازگار با OpenAI." />
+  <meta property="og:url" content="https://legolasoriginall.github.io/AI/" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236c8cff'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -131,7 +136,10 @@
               <small id="modeHint">بدون مدل واقعی · پاسخ‌ها نمونه‌اند</small>
             </div>
           </div>
-          <button class="ghost" id="toggleSettings" type="button">اتصال مدل</button>
+          <div class="chat-actions">
+            <button class="ghost" id="toggleSettings" type="button">اتصال مدل</button>
+            <button class="ghost" id="clearChat" type="button" title="شروع یک گفتگوی تازه">گفتگوی تازه</button>
+          </div>
         </div>
 
         <form class="settings hidden" id="settingsForm">
@@ -153,25 +161,54 @@
           </div>
         </form>
 
-        <div class="messages" id="messages">
+        <div class="chat-body">
+          <aside class="workspace" aria-label="فضای کاری نمایشی">
+            <div class="ws-head">
+              <span>فضای کاری دمو</span>
+              <span class="ws-badge" id="wsCount">۰ فایل</span>
+            </div>
+            <ul class="file-list" id="fileList"></ul>
+            <div class="ws-file">
+              <div class="ws-file-head">
+                <span id="filePath" dir="ltr">یک فایل را انتخاب کنید</span>
+                <button class="ws-clear hidden" id="closeFile" type="button" aria-label="بستن پیش‌نمایش">×</button>
+              </div>
+              <pre id="filePreview" class="hidden" dir="ltr"></pre>
+            </div>
+            <div class="ws-head">
+              <span>حافظه</span>
+              <span class="ws-badge" id="memCount">۰</span>
+            </div>
+            <ul class="mem-list" id="memList"></ul>
+            <button class="ws-reset" id="resetWorkspace" type="button">بازنشانی فضای کاری و حافظه</button>
+          </aside>
+
+          <div class="chat-main">
+        <div class="messages" id="messages" aria-live="polite">
           <div class="welcome">
             <div class="welcome-logo">✦</div>
             <h3>سلام! چه کاری برایتان انجام دهم؟</h3>
             <p class="muted">یکی از نمونه‌ها را بزنید تا جریان کار عامل را ببینید.</p>
             <div class="chips">
               <button class="chip" type="button" data-prompt="یک فایل پایتون بساز که اعداد اول را چاپ کند.">ساخت فایل</button>
+              <button class="chip" type="button" data-prompt="یک اسکریپت فیبوناچی بساز.">فیبوناچی</button>
               <button class="chip" type="button" data-prompt="فایل‌های پوشه را لیست کن.">فهرست فایل‌ها</button>
+              <button class="chip" type="button" data-prompt="محتوای notes.txt را بخوان.">خواندن فایل</button>
               <button class="chip" type="button" data-prompt="یادت باشه که من توی تهران زندگی می‌کنم.">یادآوری</button>
               <button class="chip" type="button" data-prompt="دستور git status را اجرا کن.">اجرای دستور</button>
+              <button class="chip" type="button" data-prompt="چه کارهایی می‌توانی انجام بدهی؟">چه کاری می‌توانی؟</button>
             </div>
           </div>
         </div>
 
         <form class="composer" id="composer">
-          <textarea id="input" rows="1" placeholder="پیام خود را بنویسید… (Enter برای ارسال)"></textarea>
-          <button class="send" type="submit" title="ارسال">↑</button>
+          <textarea id="input" rows="1" placeholder="پیام خود را بنویسید… (Enter برای ارسال، Esc برای توقف)"></textarea>
+          <button class="stop hidden" id="stopBtn" type="button" title="توقف" aria-label="توقف پاسخ">■</button>
+          <button class="send" id="sendBtn" type="submit" title="ارسال" aria-label="ارسال پیام">↑</button>
         </form>
         <p class="hint">دمو فقط برای آشنایی با تجربهٔ چت است؛ نسخهٔ کامل را از مخزن گیت‌هاب اجرا کنید.</p>
+          </div>
+        </div>
       </div>
     </section>
 
