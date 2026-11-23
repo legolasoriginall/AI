@@ -476,9 +476,128 @@ footer {
 .footer-links { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--muted); }
 .footer-links a:hover { color: var(--text); }
 
+/* ---------------------------------------------------------------- فضای کاری دمو */
+.chat-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chat-body {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 12px;
+}
+.chat-main { min-width: 0; }
+
+.workspace {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+}
+.ws-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 2px 2px 4px;
+  color: var(--muted); font-size: 11px;
+}
+.ws-head + .ws-head { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+.ws-badge {
+  background: rgba(108, 140, 255, .14);
+  color: #b9c4ff;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10px;
+}
+.file-list, .mem-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.file-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 7px;
+  background: none; border: 1px solid transparent; border-radius: 9px;
+  color: var(--text); font: inherit; font-size: 11.5px;
+  padding: 5px 7px; cursor: pointer; text-align: right;
+}
+.file-item:hover { background: var(--panel); border-color: var(--border); }
+.file-item.active { background: rgba(108, 140, 255, .16); border-color: rgba(108, 140, 255, .45); }
+.file-ico { font-size: 12px; }
+.file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+.file-size { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+.ws-empty { color: var(--muted); font-size: 10.5px; padding: 3px 6px; }
+
+.ws-file { margin-top: 2px; }
+.ws-file-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; font-size: 10.5px; color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 4px 8px;
+}
+.ws-file-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-clear { background: none; border: 0; color: var(--muted); font-size: 14px; cursor: pointer; line-height: 1; }
+.ws-clear:hover { color: var(--danger); }
+.ws-file pre {
+  margin: 6px 0 0;
+  background: #090b11;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px 10px;
+  max-height: 150px;
+  overflow: auto;
+  font-size: 10.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #c9d2ea;
+}
+.mem-item {
+  display: flex; align-items: flex-start; gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 10.5px;
+  line-height: 1.7;
+}
+.mem-text { flex: 1; overflow-wrap: anywhere; }
+.mem-remove { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 12px; padding: 0 2px; }
+.mem-remove:hover { color: var(--danger); }
+.ws-reset {
+  margin-top: 8px;
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 9px;
+  padding: 5px 8px; font: inherit; font-size: 10.5px; cursor: pointer;
+}
+.ws-reset:hover { color: var(--text); border-color: var(--accent); }
+
+/* مارک‌داون پاسخ‌ها */
+.bubble .md-block + .md-block { margin-top: 6px; }
+.bubble p, .md-block p { margin: 0 0 6px; }
+.bubble .md-block:last-child p:last-child { margin-bottom: 0; }
+.md-list { margin: 4px 0 6px; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 3px; }
+.md-list li { margin: 0; }
+.md-heading { margin: 6px 0 4px; font-size: 13px; font-weight: 600; line-height: 1.6; }
+.md-code { margin: 6px 0; background: #090b11; border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; overflow-x: auto; }
+.md-code code { background: none; padding: 0; font-size: 11px; }
+.md-link { color: #9db4ff; text-decoration: underline; text-underline-offset: 2px; }
+
+.stop {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--panel-2); color: var(--danger);
+  font-size: 12px; cursor: pointer;
+}
+.stop:hover { border-color: var(--danger); }
+.tool-state.fail { color: var(--danger); }
+
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; }
   .hero-mock { order: 2; }
   .nav-links a:not(.gh) { display: none; }
   .messages { height: 340px; }
+  .chat-body { grid-template-columns: 1fr; }
+  .workspace { order: 2; }
+  .chat-actions .ghost { padding: 6px 10px; font-size: 11px; }
 }
