@@ -197,7 +197,7 @@ export default {
       } catch {
         message = safeMessage(detail);
       }
-      const status = upstream.status === 429 ? 429 : 502;
+      const status = upstream.status === 429 ? 429 : upstream.status === 401 || upstream.status === 403 ? 502 : 502;
       const error = upstream.status === 429 ? "upstream_rate_limited" : "upstream_error";
       return jsonResponse(status, { error, status: upstream.status, message }, cors);
     }
