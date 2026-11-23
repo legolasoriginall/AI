@@ -153,11 +153,14 @@
             <label>کلید API (در localStorage این مرورگر)
               <input id="apiKey" type="password" placeholder="sk-..." dir="ltr" autocomplete="off" />
             </label>
+            <label>یا آدرس سرور واسط (کلید سمت سرور می‌ماند)
+              <input id="proxyUrl" type="url" placeholder="https://ai-assistant-proxy.<account>.workers.dev" dir="ltr" />
+            </label>
           </div>
           <div class="settings-actions">
             <button class="btn primary" type="submit">ذخیره و استفاده</button>
             <button class="btn" type="button" id="disconnect">قطع اتصال</button>
-            <span class="small">اگر endpoint شما CORS را باز نکرده باشد، اتصال از مرورگر ممکن نیست.</span>
+            <span class="small">سرور واسط را ترجیح دهید: کلید روی سرور می‌ماند. اتصال مستقیم فقط روی دستگاه خودتان امن است و اگر endpoint شما CORS را باز نکرده باشد کار نمی‌کند.</span>
           </div>
         </form>
 
