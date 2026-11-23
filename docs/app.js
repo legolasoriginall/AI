@@ -22,6 +22,7 @@
   const baseUrlEl = $("#baseUrl");
   const modelNameEl = $("#modelName");
   const apiKeyEl = $("#apiKey");
+  const proxyUrlEl = $("#proxyUrl");
   const fileListEl = $("#fileList");
   const memListEl = $("#memList");
   const wsCountEl = $("#wsCount");
@@ -34,7 +35,7 @@
   const WORKSPACE_KEY = "assistant.demo.workspace.v2";
 
   /* ------------------------------------------------------------ وضعیت */
-  let settings = { baseUrl: "", model: "", apiKey: "" };
+  let settings = { baseUrl: "", model: "", apiKey: "", proxyUrl: "" };
   let workspace = { files: {}, facts: [] };
   let history = [];
   let selectedPath = "";
@@ -153,13 +154,20 @@
   /* ------------------------------------------------------------ تنظیمات */
   function loadSettings() {
     try {
-      settings = { baseUrl: "", model: "", apiKey: "", ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
+      settings = {
+        baseUrl: "",
+        model: "",
+        apiKey: "",
+        proxyUrl: "",
+        ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"),
+      };
     } catch {
-      settings = { baseUrl: "", model: "", apiKey: "" };
+      settings = { baseUrl: "", model: "", apiKey: "", proxyUrl: "" };
     }
     baseUrlEl.value = settings.baseUrl;
     modelNameEl.value = settings.model;
     apiKeyEl.value = settings.apiKey;
+    proxyUrlEl.value = settings.proxyUrl;
     renderMode();
   }
 
@@ -171,7 +179,8 @@
     }
   }
 
-  const isLive = () => Boolean(settings.baseUrl && settings.model);
+  const proxyBase = () => settings.proxyUrl.trim().replace(/\/+$/, "");
+  const isLive = () => Boolean(proxyBase() || (settings.baseUrl && settings.model));
 
   function endpointUrl(base) {
     const trimmed = base.replace(/\/+$/, "");
@@ -179,7 +188,14 @@
   }
 
   function renderMode() {
-    if (isLive()) {
+    if (proxyBase()) {
+      modeLabel.textContent = "متصل به سرور واسط";
+      try {
+        modeHint.textContent = "کلید سمت سرور · " + new URL(proxyBase()).host;
+      } catch {
+        modeHint.textContent = "کلید سمت سرور";
+      }
+    } else if (isLive()) {
       modeLabel.textContent = "متصل به مدل";
       try {
         modeHint.textContent = settings.model + " · " + new URL(settings.baseUrl).host;
@@ -204,22 +220,32 @@
       sysNotice("آدرس endpoint باید با http:// یا https:// شروع شود.", true);
       return;
     }
-    settings = { baseUrl, model: modelNameEl.value.trim(), apiKey: apiKeyEl.value.trim() };
+    const proxyUrl = proxyUrlEl.value.trim().replace(/\/+$/, "");
+    if (proxyUrl && !/^https?:\/\//i.test(proxyUrl)) {
+      sysNotice("آدرس سرور واسط باید با http:// یا https:// شروع شود.", true);
+      return;
+    }
+    settings = { baseUrl, model: modelNameEl.value.trim(), apiKey: apiKeyEl.value.trim(), proxyUrl };
     saveSettings();
     renderMode();
     settingsForm.classList.add("hidden");
-    sysNotice(
-      isLive()
-        ? "اتصال ذخیره شد. از این به بعد پیام‌ها با مدل شما و همراه با تاریخچهٔ همین گفتگو پاسخ داده می‌شوند. کلید فقط در localStorage همین مرورگر مانده است."
-        : "اتصال ذخیره نشد؛ دمو در حالت نمایشی ادامه می‌یابد. برای اتصال، هم آدرس endpoint و هم نام مدل لازم است."
-    );
+    if (proxyBase()) {
+      sysNotice("سرور واسط ذخیره شد. کلید API فقط روی سرور است و به مرورگر نمی‌رسد.");
+    } else if (isLive()) {
+      sysNotice(
+        "اتصال ذخیره شد. از این به بعد پیام‌ها با مدل شما و همراه با تاریخچهٔ همین گفتگو پاسخ داده می‌شوند. کلید فقط در localStorage همین مرورگر مانده است."
+      );
+    } else {
+      sysNotice("اتصال ذخیره نشد؛ دمو در حالت نمایشی ادامه می‌یابد. برای اتصال، یا آدرس سرور واسط را بدهید یا هم endpoint و هم نام مدل را.");
+    }
   });
 
   $("#disconnect").addEventListener("click", () => {
-    settings = { baseUrl: "", model: "", apiKey: "" };
+    settings = { baseUrl: "", model: "", apiKey: "", proxyUrl: "" };
     baseUrlEl.value = "";
     modelNameEl.value = "";
     apiKeyEl.value = "";
+    proxyUrlEl.value = "";
     saveSettings();
     renderMode();
     sysNotice("اتصال قطع شد؛ دمو در حالت نمایشی ادامه می‌یابد.");
@@ -368,15 +394,18 @@
       ...history,
     ];
 
+    const viaProxy = Boolean(proxyBase());
+    const target = viaProxy ? proxyBase() + "/api/chat" : endpointUrl(settings.baseUrl);
+
     try {
-      const response = await fetch(endpointUrl(settings.baseUrl), {
+      const response = await fetch(target, {
         method: "POST",
         signal: run.controller.signal,
         headers: {
           "Content-Type": "application/json",
-          ...(settings.apiKey ? { Authorization: "Bearer " + settings.apiKey } : {}),
+          ...(viaProxy || !settings.apiKey ? {} : { Authorization: "Bearer " + settings.apiKey }),
         },
-        body: JSON.stringify({ model: settings.model, stream: true, messages }),
+        body: JSON.stringify(viaProxy ? { stream: true, messages } : { model: settings.model, stream: true, messages }),
       });
 
       if (!response.ok || !response.body) {
@@ -427,9 +456,9 @@
       } else {
         bubble.classList.add("error");
         bubble.textContent =
-          "اتصال به مدل ممکن نشد: " +
+          "اتصال ممکن نشد: " +
           error.message +
-          "\n\nاگر خطای CORS دیدید، endpoint شما اجازهٔ درخواست از مرورگر را نمی‌دهد؛ در این صورت از نسخهٔ Flask استفاده کنید.";
+          "\n\nاگر خطای CORS دیدید، endpoint شما اجازهٔ درخواست از مرورگر را نمی‌دهد؛ در این صورت از سرور واسط یا نسخهٔ Flask استفاده کنید.";
       }
     } finally {
       if (run) run.controller = null;
