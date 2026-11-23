@@ -1,0 +1,10 @@
+.env
+.settings.json
+data/
+workspace/*
+!workspace/.gitkeep
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
