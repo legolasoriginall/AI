@@ -1,4 +1,6 @@
 .env
+.dev.vars
+.wrangler/
 .settings.json
 data/
 workspace/*
