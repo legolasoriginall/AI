@@ -17,6 +17,7 @@
 - محدودسازی نرخ ساده و بهترین‌تلاش بر اساس IP (در حافظهٔ هر ایزوله).
 - خطاهای بالادست با پیام کوتاه و بدون افشای جزئیات کلید برگردانده می‌شوند.
 - مسیر `GET /health` برای بررسی استقرار.
+- مسیر `GET /api/models` فهرست مدل‌های مجاز همین سرور را برمی‌گرداند تا «مدیر مدل» دمو بتواند مدل‌های سمت سرور را پیدا و انتخاب کند (متغیر `MODELS`؛ پیش‌فرض همان `MODEL`).
 
 ## تست‌ها (بدون شبکه)
 
@@ -24,7 +25,7 @@
 node worker/test.mjs
 ```
 
-۲۷ بررسی: مسیرها، CORS، Origin غیرمجاز، نبود Secret، نوع محتوا، JSON نامعتبر، اعتبارسنجی پیام، استریم، پاسخ غیراستریم، خطاهای بالادست و محدودسازی نرخ. همه با `fetch` شبیه‌سازی‌شده اجرا می‌شوند و به کلید واقعی نیاز ندارند.
+۳۲ بررسی: مسیرها، CORS، Origin غیرمجاز، نبود Secret، نوع محتوا، JSON نامعتبر، اعتبارسنجی پیام، فهرست مدل‌ها، استریم، پاسخ غیراستریم، خطاهای بالادست و محدودسازی نرخ. همه با `fetch` شبیه‌سازی‌شده اجرا می‌شوند و به کلید واقعی نیاز ندارند.
 
 ## استقرار
 
@@ -46,6 +47,7 @@ npx wrangler deploy
 | `ALLOWED_ORIGINS` | دامنه‌های مجاز، با کاما جدا می‌شوند؛ مثلاً `https://legolasoriginall.github.io` |
 | `MODEL` | شناسهٔ مدل Numes، مثل `openai/gpt-6-luna` |
 | `MAX_TOKENS` | سقف توکن خروجی (حداکثر ۲۰۰۰) |
+| `MODELS` | اختیاری: فهرست مدل‌های قابل انتخاب با کاما برای `GET /api/models`؛ اگر خالی باشد فقط `MODEL` معرفی می‌شود |
 | `RATE_LIMIT` / `RATE_WINDOW_MS` | تعداد درخواست مجاز در هر بازه برای هر IP |
 
 اگر دامنهٔ دیگری (مثل دامنهٔ پیش‌نمایش) هم دارید، همان را به `ALLOWED_ORIGINS` اضافه کنید؛ در غیر این صورت مرورگر خطای CORS می‌گیرد.
@@ -55,6 +57,9 @@ npx wrangler deploy
 ```bash
 curl https://ai-assistant-proxy.<account>.workers.dev/health
 # {"ok":true,"configured":true,"model":"openai/gpt-6-luna"}
+
+curl https://ai-assistant-proxy.<account>.workers.dev/api/models
+# {"models":[{"id":"openai/gpt-6-luna","label":"openai/gpt-6-luna"}],"default":"openai/gpt-6-luna"}
 
 curl -N https://ai-assistant-proxy.<account>.workers.dev/api/chat \
   -H "Content-Type: application/json" \
@@ -71,7 +76,7 @@ curl -N https://ai-assistant-proxy.<account>.workers.dev/api/chat \
 1. آدرس Worker را در فیلد **«آدرس سرور واسط»** بگذارید و ذخیره کنید.
 2. فیلدهای endpoint/مدل/کلید را خالی بگذارید.
 
-از آن به بعد پیام‌ها با مدل واقعی و به‌صورت استریمی پاسخ داده می‌شوند و هیچ کلیدی در مرورگر نیست.
+از آن به بعد پیام‌ها با مدل واقعی و به‌صورت استریمی پاسخ داده می‌شوند و هیچ کلیدی در مرورگر نیست. بخش «مدل‌ها» هم مدل‌های همین سرور را از `GET /api/models` می‌خواند.
 
 ## نکات امنیتی
 
