@@ -10,6 +10,8 @@
  *   GET  /health     بررسی سریع استقرار (بدون تماس با سرویس بالادست)
  */
 
+/* پیش‌فرض Numes است؛ با متغیر محیطی UPSTREAM_URL می‌توان به هر endpoint
+   سازگار با OpenAI اشاره کرد (برای تست محلی با یک سرور جعلی). */
 const UPSTREAM_URL = "https://api.numes.ai/api/v1/chat/completions";
 
 const LIMITS = {
@@ -186,7 +188,7 @@ export default {
       const signal = typeof AbortSignal !== "undefined" && AbortSignal.timeout
         ? AbortSignal.timeout(LIMITS.upstreamTimeoutMs)
         : undefined;
-      upstream = await fetch(UPSTREAM_URL, {
+      upstream = await fetch(env.UPSTREAM_URL || UPSTREAM_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${env.NUMES_API_KEY}`,
