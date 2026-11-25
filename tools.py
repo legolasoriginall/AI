@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict
 
+import providers
 import store
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -134,6 +135,57 @@ def recall(query: str = "") -> str:
     return "\n".join(f"- {f['key']}: {f['value']}" for f in facts)
 
 
+def _ollama_base() -> str:
+    return (store.load_settings().get("ollama_url") or "http://localhost:11434").rstrip("/")
+
+
+def list_models() -> str:
+    """مدل‌های نصب‌شده روی Ollama به‌همراه فهرست پیشنهادی برای دانلود."""
+    base = _ollama_base()
+    installed = providers.ollama_details(base)
+    lines = [f"Ollama: {base}"]
+    if installed:
+        lines.append("نصب‌شده:")
+        for model in installed:
+            gb = model["size"] / (1024**3) if model["size"] else 0
+            lines.append(f"- {model['name']}" + (f" ({gb:.1f} GB)" if gb else ""))
+    else:
+        lines.append("هیچ مدلی پیدا نشد؛ یا Ollama اجرا نیست یا هنوز مدلی نصب نشده است.")
+    active = store.load_settings().get("ollama_model") or "(خودکار)"
+    lines.append(f"مدل فعال: {active}")
+    lines.append("پیشنهاد دانلود: " + ", ".join(m["id"] for m in providers.MODEL_CATALOG))
+    return "\n".join(lines)
+
+
+def install_model(name: str) -> str:
+    """نصب (دانلود) یک مدل با Ollama؛ ممکن است چند دقیقه طول بکشد."""
+    if not providers.valid_model_name(name):
+        return "نام مدل مجاز نیست (مثال درست: llama3.2:3b)."
+    metric = {m["id"] for m in providers.MODEL_CATALOG}
+    if name not in metric:
+        known = ", ".join(sorted(metric))
+        return f"مدل «{name}» در فهرست پیشنهادی نیست. از یکی از این‌ها استفاده کن: {known}"
+    last: Dict[str, Any] = {}
+    for event in providers.pull_model(_ollama_base(), name):
+        if event.get("error"):
+            return event["error"]
+        last = event
+    if last.get("status") != "success":
+        return f"نصب {name} کامل نشد (آخرین وضعیت: {last.get('status') or 'نامشخص'})."
+    return f"مدل «{name}» نصب شد. برای فعال‌کردنش ابزار use_model را با همین نام صدا بزن."
+
+
+def use_model(name: str) -> str:
+    """یک مدل نصب‌شده را به‌عنوان مدل فعال انتخاب می‌کند."""
+    if not providers.valid_model_name(name):
+        return "نام مدل مجاز نیست."
+    installed = [m["name"] for m in providers.ollama_details(_ollama_base())]
+    if installed and name not in installed:
+        return f"مدل «{name}» نصب نیست. نصب‌شده‌ها: {', '.join(installed)}"
+    store.save_settings({"provider": "ollama", "ollama_model": name})
+    return f"مدل فعال روی «{name}» تنظیم شد؛ از پیام بعدی همین مدل پاسخ می‌دهد."
+
+
 TOOL_SPECS: Dict[str, Callable[..., str]] = {
     "list_files": list_files,
     "read_file": read_file,
@@ -141,6 +193,9 @@ TOOL_SPECS: Dict[str, Callable[..., str]] = {
     "run_command": run_command,
     "remember": remember,
     "recall": recall,
+    "list_models": list_models,
+    "install_model": install_model,
+    "use_model": use_model,
 }
 
 

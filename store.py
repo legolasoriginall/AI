@@ -44,6 +44,9 @@ SYSTEM_PROMPT_TOOLS = """
 - run_command args: {"command": "python file.py"}        → اجرای دستور در workspace
 - remember    args: {"key": "…", "value": "…"}           → ثبت یک حقیقت برای آینده
 - recall      args: {"query": "…"}                       → جستجو در حافظه
+- list_models args: {}                                   → مدل‌های نصب‌شده و پیشنهاد دانلود
+- install_model args: {"name": "llama3.2:3b"}            → دانلود و نصب مدل محلی (طولانی است)
+- use_model   args: {"name": "llama3.2:3b"}            → فعال‌کردن مدل نصب‌شده برای پاسخ‌ها
 
 قواعد:
 1. هر بار فقط یک ابزار صدا بزن؛ نتیجه‌اش را در پیام بعدی می‌گیری.
