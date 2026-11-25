@@ -51,7 +51,10 @@ def status():
     brain = Brain(settings)
     info = brain.describe()
     info["model"] = settings.get("model") or ""
-    info["ollama_model"] = settings.get("ollama_model") or (info["ollama_models"][0] if info["ollama_models"] else "")
+    saved_ollama = settings.get("ollama_model") or ""
+    info["active_model"] = saved_ollama
+    info["ollama_model"] = saved_ollama or (info["ollama_models"][0] if info["ollama_models"] else "")
+    info["ollama_model_missing"] = bool(saved_ollama) and saved_ollama not in info["ollama_models"]
     info["workspace"] = str(tools.WORKSPACE)
     info["online_base_url"] = settings.get("openai_base_url")
     return jsonify(info)
