@@ -175,9 +175,11 @@
           </div>
           <div class="settings-actions">
             <button class="btn primary" type="submit">ذخیره و استفاده</button>
+            <button class="btn" type="button" id="testProxy">تست اتصال</button>
             <button class="btn" type="button" id="disconnect">قطع اتصال</button>
             <span class="small">سرور واسط را ترجیح دهید: کلید روی سرور می‌ماند. اتصال مستقیم فقط روی دستگاه خودتان امن است و اگر endpoint شما CORS را باز نکرده باشد کار نمی‌کند.</span>
           </div>
+          <p class="settings-status hidden" id="proxyStatus" role="status" aria-live="polite"></p>
         </form>
 
         <div class="chat-body">
@@ -362,6 +364,7 @@ GEMINI_API_KEY=...</code></pre>
   <script src="markdown.js"></script>
   <script src="agent.js"></script>
   <script src="models.js"></script>
+  <script src="connect-test.js"></script>
   <script src="examples.js"></script>
   <script src="app.js"></script>
 </body>
