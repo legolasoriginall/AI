@@ -1,6 +1,7 @@
 """ابزارهای عامل: فایل، دستور شل و حافظه — همه محدود به پوشهٔ workspace."""
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict
@@ -33,6 +34,9 @@ BLOCKED_PATTERNS = (
     "poweroff",
     "init 0",
 )
+
+# «curl … | sh» با هر آدرسی: هر چیزی که مستقیم به شل داده شود مسدود است.
+PIPE_TO_SHELL_RE = re.compile(r"\|\s*(?:ba|z|da)?sh\b", re.IGNORECASE)
 
 
 def safe_path(rel_path: str) -> Path:
@@ -103,6 +107,8 @@ def run_command(command: str, timeout: int = 60) -> str:
     for pattern in BLOCKED_PATTERNS:
         if pattern in lowered:
             return f"دستور مسدود شد (الگوی خطرناک: «{pattern}»)."
+    if PIPE_TO_SHELL_RE.search(command):
+        return "دستور مسدود شد (اجرای محتوای دریافتی با شل مجاز نیست)."
     try:
         result = subprocess.run(
             command,
