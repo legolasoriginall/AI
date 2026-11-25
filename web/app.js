@@ -341,6 +341,8 @@ async function useModel(name) {
   loadStatus();
 }
 
+let pullController = null;
+
 async function installModel(name, card) {
   const stateEl = card.querySelector('.catalog-state');
   const bar = card.querySelector('.catalog-progress i');
@@ -348,11 +350,19 @@ async function installModel(name, card) {
   modelLog(`شروع دانلود و نصب ${name}…`);
   stateEl.textContent = 'در حال شروع…';
 
+  const controller = new AbortController();
+  pullController = controller;
+  const actions = card.querySelector('.catalog-actions');
+  const installBtn = actions ? actions.querySelector('button') : null;
+  if (installBtn) installBtn.disabled = true;
+  if (actions) actions.appendChild(modelButton('لغو', 'btn', () => controller.abort()));
+
   try {
     const res = await fetch('/api/models/pull', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: name }),
+      signal: controller.signal,
     });
     if (!res.ok || !res.body) throw new Error(`خطای شبکه (${res.status})`);
 
@@ -385,9 +395,16 @@ async function installModel(name, card) {
       }
     }
   } catch (error) {
-    modelLog(`✗ نصب ${name} ناموفق: ${error.message}`);
-    stateEl.textContent = `ناموفق: ${error.message}`;
+    if (error.name === 'AbortError' || controller.signal.aborted) {
+      bar.style.width = '0%';
+      stateEl.textContent = 'لغو شد';
+      modelLog(`⏹ دانلود ${name} لغو شد`);
+    } else {
+      modelLog(`✗ نصب ${name} ناموفق: ${error.message}`);
+      stateEl.textContent = `ناموفق: ${error.message}`;
+    }
   } finally {
+    if (pullController === controller) pullController = null;
     card.classList.remove('pulling');
     await loadModels();
   }
