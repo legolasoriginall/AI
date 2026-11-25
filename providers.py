@@ -160,10 +160,15 @@ class Brain:
     def _ollama(self, messages: List[Dict[str, str]], system: str) -> str:
         model = self.settings.get("ollama_model") or ""
         models = ollama_models(self.ollama_url)
-        if not model or model not in models:
+        if not model:
             if not models:
                 raise RuntimeError("Ollama در دسترس نیست")
             model = models[0]
+        elif model not in models:
+            raise RuntimeError(
+                f"مدل فعال «{model}» دیگر روی این دستگاه نصب نیست. "
+                "از دکمهٔ مدل‌ها یکی از مدل‌های نصب‌شده را انتخاب کنید یا همان مدل را دوباره دانلود کنید."
+            )
         payload = {
             "model": model,
             "messages": ([{"role": "system", "content": system}] if system else []) + messages,
