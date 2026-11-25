@@ -31,6 +31,7 @@ window.DemoModels = (() => {
   }
 
   let logLines = [];
+  let pullAbort = null;
   const state = {
     ollama: { online: false, models: [], error: "" },
     proxy: { configured: false, online: false, models: [], error: "" },
@@ -275,9 +276,12 @@ window.DemoModels = (() => {
     const installed = new Set(entries().map((entry) => (entry.id.includes(":") ? entry.id : entry.id + ":latest")));
     grid.innerHTML = CATALOG.map((model) => {
       const ready = installed.has(model.id + ":latest") || installed.has(model.id);
+      const pulling = state.pulling === model.id;
       const action = ready
         ? '<span class="model-src ollama">نصب‌شده</span><button class="mini primary" type="button" data-act="use">استفاده در چت</button>'
-        : `<button class="mini primary" type="button" data-act="pull">${state.ollama.online ? "دانلود و نصب" : "دستور نصب"}</button>`;
+        : pulling
+          ? '<button class="mini ghost" type="button" data-act="cancel">لغو</button>'
+          : `<button class="mini primary" type="button" data-act="pull">${state.ollama.online ? "دانلود و نصب" : "دستور نصب"}</button>`;
       return `<article class="catalog-item" data-model-id="${model.id}">
         <div class="catalog-head"><strong dir="ltr">${model.label}</strong>${model.badge ? `<span class="badge">${model.badge}</span>` : ""}</div>
         <p class="muted small">${model.note}</p>
@@ -304,6 +308,8 @@ window.DemoModels = (() => {
       }
       const use = card.querySelector('button[data-act="use"]');
       if (use) use.addEventListener("click", () => useModel({ id: model.id, source: "ollama", base: ollamaBase, size: 0, params: "" }));
+      const cancel = card.querySelector('button[data-act="cancel"]');
+      if (cancel) cancel.addEventListener("click", cancelPull);
       card.querySelector('button[data-act="cmd"]').addEventListener("click", () => {
         showCommand("ollama pull " + model.id);
         log("دستور دستی: ollama pull " + model.id);
@@ -337,6 +343,16 @@ window.DemoModels = (() => {
   }
 
   /* ---------------------------------------------------------- نصب */
+  function cancelPull() {
+    if (!pullAbort) return;
+    log("لغو دانلود …");
+    try {
+      pullAbort.abort();
+    } catch {
+      /* نادیده بگیر */
+    }
+  }
+
   async function startPull(model) {
     if (state.pulling) return;
     state.pulling = model;
@@ -344,6 +360,8 @@ window.DemoModels = (() => {
     const bar = card && card.querySelector(".catalog-progress i");
     const stateLine = card && card.querySelector(".catalog-state");
     const controller = new AbortController();
+    pullAbort = controller;
+    let note = "";
     if (card) card.classList.add("pulling");
     log("شروع دانلود و نصب " + model + " — ممکن است چند دقیقه طول بکشد…");
 
@@ -392,21 +410,34 @@ window.DemoModels = (() => {
       log("✅ نصب " + model + " تمام شد؛ فهرست مدل‌ها به‌روز شد.");
       await refresh();
     } catch (error) {
-      const message = describeError(error);
-      log("✗ نصب " + model + " ناموفق: " + message);
-      if (stateLine) stateLine.textContent = "ناموفق: " + message;
-      showCommand("ollama pull " + model);
-      if (error instanceof TypeError) {
-        log(
-          location.protocol === "https:"
-            ? "صفحهٔ HTTPS اجازهٔ تماس با Ollama محلی را ندارد: دستور بالا را در ترمینال اجرا کنید، یا نسخهٔ کامل را باز کنید، یا آدرس HTTPS تونل‌شده را در فیلد بالا بگذارید."
-            : "Ollama را با این دستور اجرا کنید و صفحه را نوسازی کنید: OLLAMA_ORIGINS=" + location.origin + " ollama serve"
-        );
+      if (error.name === "AbortError") {
+        note = "لغو شد";
+        if (stateLine) stateLine.textContent = note;
+        if (bar) bar.style.width = "0%";
+        log("⏹ دانلود " + model + " لغو شد؛ فایل نیمه‌کاره‌ای نصب نمی‌شود.");
+      } else {
+        const message = describeError(error);
+        note = "ناموفق: " + message;
+        log("✗ نصب " + model + " ناموفق: " + message);
+        if (stateLine) stateLine.textContent = note;
+        showCommand("ollama pull " + model);
+        if (error instanceof TypeError) {
+          log(
+            location.protocol === "https:"
+              ? "صفحهٔ HTTPS اجازهٔ تماس با Ollama محلی را ندارد: دستور بالا را در ترمینال اجرا کنید، یا نسخهٔ کامل را باز کنید، یا آدرس HTTPS تونل‌شده را در فیلد بالا بگذارید."
+              : "Ollama را با این دستور اجرا کنید و صفحه را نوسازی کنید: OLLAMA_ORIGINS=" + location.origin + " ollama serve"
+          );
+        }
       }
     } finally {
+      pullAbort = null;
       state.pulling = "";
       if (card) card.classList.remove("pulling");
       renderCatalog();
+      if (note) {
+        const fresh = document.querySelector('.catalog-item[data-model-id="' + model + '"] .catalog-state');
+        if (fresh) fresh.textContent = note;
+      }
     }
   }
 
