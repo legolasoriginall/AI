@@ -1,5 +1,6 @@
 name: patch-models-guide
 
+# راه‌اندازی دوباره بعد از افزودن scripts/patch_guide.py
 on:
   push:
     paths:
