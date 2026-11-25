@@ -642,9 +642,67 @@
     },
   };
 
+  /* ------------------------------------------- بارگذاری تنبل مدیر مدل‌ها */
+  let modelsPromise = null;
+  let modelsStarted = false;
+
+  function startModels() {
+    if (modelsStarted || !window.DemoModels) return;
+    modelsStarted = true;
+    window.DemoModels.init();
+  }
+
+  function loadModels() {
+    if (window.DemoModels) {
+      startModels();
+      return Promise.resolve();
+    }
+    if (modelsPromise) return modelsPromise;
+    modelsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "models.js";
+      script.async = true;
+      script.onload = () => {
+        startModels();
+        resolve();
+      };
+      script.onerror = () => {
+        modelsPromise = null;
+        reject(new Error("models.js بارگذاری نشد"));
+      };
+      document.head.appendChild(script);
+    });
+    return modelsPromise;
+  }
+
+  const modelsSection = $("#models");
+  if (modelsSection && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          loadModels().catch(() => {});
+        }
+      },
+      { rootMargin: "300px 0px" }
+    );
+    observer.observe(modelsSection);
+  }
+
+  document.querySelectorAll('a[href="#models"], #openModels').forEach((link) => {
+    link.addEventListener("click", () => {
+      loadModels()
+        .then(() => {
+          if (modelsSection) modelsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        })
+        .catch(() => {
+          sysNotice("مدیر مدل‌ها بارگذاری نشد؛ اتصال شبکه را بررسی کنید.", true);
+        });
+    });
+  });
+
   /* ------------------------------------------------------------ آغاز */
   loadSettings();
   loadWorkspace();
   renderWorkspace();
-  if (window.DemoModels) window.DemoModels.init();
 })();
