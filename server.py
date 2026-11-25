@@ -91,28 +91,36 @@ def pull_model_route():
     base = store.load_settings().get("ollama_url") or "http://localhost:11434"
 
     def generate():
-        for event in ollama_pull(base, name):
-            if event.get("error"):
-                yield _sse({"type": "error", "message": event["error"]})
-                return
-            total = int(event.get("total") or 0)
-            completed = int(event.get("completed") or 0)
+        stream = ollama_pull(base, name)
+        try:
+            for event in stream:
+                if event.get("error"):
+                    yield _sse({"type": "error", "message": event["error"]})
+                    return
+                total = int(event.get("total") or 0)
+                completed = int(event.get("completed") or 0)
+                yield _sse(
+                    {
+                        "type": "progress",
+                        "status": event.get("status", ""),
+                        "completed": completed,
+                        "total": total,
+                        "percent": round(completed * 100 / total) if total else 0,
+                    }
+                )
             yield _sse(
                 {
-                    "type": "progress",
-                    "status": event.get("status", ""),
-                    "completed": completed,
-                    "total": total,
-                    "percent": round(completed * 100 / total) if total else 0,
+                    "type": "done",
+                    "model": name,
+                    "installed": [m["name"] for m in ollama_details(base)],
                 }
             )
-        yield _sse(
-            {
-                "type": "done",
-                "model": name,
-                "installed": [m["name"] for m in ollama_details(base)],
-            }
-        )
+        finally:
+            # اگر کلاینت دانلود را لغو کند، بستن این مولد اتصال بالادست را هم می‌بندد
+            # تا «ollama pull» در سرور ادامه پیدا نکند.
+            close = getattr(stream, "close", None)
+            if callable(close):
+                close()
 
     return Response(
         stream_with_context(generate()),
