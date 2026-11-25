@@ -374,7 +374,7 @@ window.DemoModels = (() => {
       hint.textContent = "مدل‌ها از Ollama همین دستگاه خوانده شدند؛ «استفاده در چت» مدل فعال را عوض می‌کند.";
     } else if (location.protocol === "https:") {
       hint.textContent =
-        "این صفحه HTTPS است و مرورگر با http://127.0.0.1 تماس نمی‌گیرد. برای نصب و اجرا از داخل برنامه، نسخهٔ کامل را روی همین دستگاه اجرا کنید (python server.py → دکمهٔ مدل‌ها)، یا Ollama را پشت یک آدرس HTTPS با CORS بگذارید و همان را اینجا وارد کنید. وگرنه دستور ollama pull را در ترمینال اجرا کنید.";
+        "این صفحه HTTPS است و مرورگر با http://127.0.0.1 تماس نمی‌گیرد. برای نصب و اجرا از داخل برنامه، نسخهٔ کامل را روی همین دستگاه اجرا کنید (python server.py → دکمهٔ مدل‌ها)، یا با «bash scripts/ollama_tunnel.sh» یک آدرس HTTPS بسازید و همان را اینجا وارد کنید (راهنما در README، بخش «مدل‌ها»). وگرنه دستور ollama pull را در ترمینال اجرا کنید.";
     } else {
       hint.textContent =
         "اگر Ollama دیده نمی‌شود، آن را با اجازهٔ همین دامنه اجرا کنید: OLLAMA_ORIGINS=" + location.origin + " ollama serve";

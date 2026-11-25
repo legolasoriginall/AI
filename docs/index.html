@@ -274,8 +274,10 @@
             <button class="mini ghost" id="copyModelCmd" type="button">کپی</button>
           </div>
           <p class="muted small">
-            دانلود مستقیم از مرورگر فقط وقتی کار می‌کند که Ollama اجازهٔ همین دامنه را داشته باشد:
+            دانلود مستقیم از مرورگر فقط وقتی کار می‌کند که Ollama اجازهٔ همین دامنه را داشته باشد و صفحه با آدرس HTTPS به آن وصل شود:
             <code dir="ltr">OLLAMA_ORIGINS=https://legolasoriginall.github.io ollama serve</code>
+            <br />
+            راه ساده‌تر: <code dir="ltr">bash scripts/ollama_tunnel.sh</code> — Ollama را با همین دامنه بالا می‌آورد و با cloudflared آدرس <code dir="ltr">https://…trycloudflare.com</code> می‌دهد؛ همان را در فیلد «آدرس Ollama» بگذارید. جزئیات در README، بخش «مدل‌ها».
           </p>
         </div>
       </div>
