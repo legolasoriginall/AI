@@ -172,6 +172,13 @@ const goodMessages = [{ role: "user", content: "سلام" }];
   check("cors header echoed", res.headers.get("Access-Control-Allow-Origin") === "https://legolasoriginall.github.io");
 }
 
+{
+  requests.length = 0;
+  upstreamResponse = new Response("data: [DONE]\n\n", { status: 200, headers: { "Content-Type": "text/event-stream" } });
+  await call("/api/chat", jsonBody(goodMessages), { ...BASE_ENV, UPSTREAM_URL: "https://stub.example/v1/chat/completions" });
+  check("upstream url is overridable", requests[0].url === "https://stub.example/v1/chat/completions", requests[0].url);
+}
+
 /* ---------------------------------------------------------------- پاسخ غیراستریم */
 {
   requests.length = 0;
