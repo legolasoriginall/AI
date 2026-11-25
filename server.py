@@ -10,7 +10,15 @@ from flask import Flask, Response, jsonify, request, send_from_directory, stream
 import agent
 import store
 import tools
-from providers import Brain, ProviderError, ollama_models
+from providers import (
+    MODEL_CATALOG,
+    Brain,
+    ProviderError,
+    ollama_details,
+    ollama_models,
+    pull_model as ollama_pull,
+    valid_model_name,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
@@ -51,8 +59,83 @@ def status():
 
 @app.get("/api/models")
 def models():
+    """مدل‌های پیدا‌شده (Ollama) + فهرست پیشنهادی برای دانلود."""
     settings = store.load_settings()
-    return jsonify({"ollama": ollama_models(settings.get("ollama_url", "http://localhost:11434"))})
+    base = settings.get("ollama_url") or "http://localhost:11434"
+    installed = ollama_details(base)
+    return jsonify(
+        {
+            "ollama_url": base,
+            "ollama_ready": bool(installed),
+            "ollama": [m["name"] for m in installed] or ollama_models(base),
+            "installed": installed,
+            "catalog": MODEL_CATALOG,
+            "active": {
+                "provider": settings.get("provider", "auto"),
+                "ollama_model": settings.get("ollama_model", ""),
+                "online_model": settings.get("model", ""),
+                "online_base_url": settings.get("openai_base_url", ""),
+            },
+        }
+    )
+
+
+@app.post("/api/models/pull")
+def pull_model_route():
+    """نصب مدل با استریم پیشرفت؛ همان کاری که Ollama در ترمینال می‌کند."""
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("model") or "").strip()
+    if not valid_model_name(name):
+        return jsonify({"error": "نام مدل مجاز نیست (فقط حروف، رقم، نقطه، خط تیره، زیرخط و دو نقطه)."}), 400
+
+    base = store.load_settings().get("ollama_url") or "http://localhost:11434"
+
+    def generate():
+        for event in ollama_pull(base, name):
+            if event.get("error"):
+                yield _sse({"type": "error", "message": event["error"]})
+                return
+            total = int(event.get("total") or 0)
+            completed = int(event.get("completed") or 0)
+            yield _sse(
+                {
+                    "type": "progress",
+                    "status": event.get("status", ""),
+                    "completed": completed,
+                    "total": total,
+                    "percent": round(completed * 100 / total) if total else 0,
+                }
+            )
+        yield _sse(
+            {
+                "type": "done",
+                "model": name,
+                "installed": [m["name"] for m in ollama_details(base)],
+            }
+        )
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/models/use")
+def use_model_route():
+    """مدل نصب‌شده را به‌عنوان مدل فعال انتخاب می‌کند."""
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("model") or "").strip()
+    if not valid_model_name(name):
+        return jsonify({"error": "نام مدل مجاز نیست."}), 400
+
+    base = store.load_settings().get("ollama_url") or "http://localhost:11434"
+    installed = [m["name"] for m in ollama_details(base)]
+    if installed and name not in installed:
+        return jsonify({"error": f"مدل «{name}» نصب نیست.", "installed": installed}), 404
+
+    store.save_settings({"provider": "ollama", "ollama_model": name})
+    return jsonify({"ok": True, "provider": "ollama", "model": name})
 
 
 # --------------------------------------------------------------------- تنظیمات

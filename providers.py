@@ -1,13 +1,28 @@
 """روتر مدل‌های زبانی: آفلاین (Ollama) و آنلاین (Gemini / هر API سازگار با OpenAI)."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import json
+import re
+from typing import Any, Dict, Iterator, List
 
 import requests
 
 
 class ProviderError(RuntimeError):
     """هیچ‌کدام از مدل‌های موجود پاسخ ندادند."""
+
+
+# مدل‌های محلی پیشنهادی برای دانلود؛ همان فهرست docs/models.js
+MODEL_CATALOG: List[Dict[str, Any]] = [
+    {"id": "llama3.2:1b", "label": "Llama 3.2 1B", "size": "1.3 GB", "ram": "8 GB", "note": "سبک‌ترین گزینه؛ برای شروع و دستگاه‌های کم‌رم."},
+    {"id": "llama3.2:3b", "label": "Llama 3.2 3B", "size": "2.0 GB", "ram": "8 GB", "note": "تعادل خوب کیفیت و سرعت؛ انتخاب پیشنهادی."},
+    {"id": "qwen2.5:3b", "label": "Qwen 2.5 3B", "size": "1.9 GB", "ram": "8 GB", "note": "فارسی و عربی را بهتر از هم‌اندازه‌هایش می‌فهمد."},
+    {"id": "gemma2:2b", "label": "Gemma 2 2B", "size": "1.6 GB", "ram": "8 GB", "note": "پاسخ‌های کوتاه و مرتب برای پرسش‌های روزمره."},
+    {"id": "qwen2.5:7b", "label": "Qwen 2.5 7B", "size": "4.7 GB", "ram": "16 GB", "note": "کیفیت بالاتر برای کد و متن فارسی؛ رم بیشتری می‌خواهد."},
+    {"id": "llama3.1:8b", "label": "Llama 3.1 8B", "size": "4.9 GB", "ram": "16 GB", "note": "مدل عمومی قوی‌تر برای کارهای طولانی."},
+]
+
+MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9._:\-/]{1,80}$")
 
 
 def ollama_models(base_url: str) -> List[str]:
@@ -19,6 +34,62 @@ def ollama_models(base_url: str) -> List[str]:
     except requests.RequestException:
         pass
     return []
+
+
+def ollama_details(base_url: str) -> List[Dict[str, Any]]:
+    """فهرست مدل‌های نصب‌شده همراه با اندازه و تعداد پارامتر."""
+    try:
+        resp = requests.get(f"{base_url.rstrip('/')}/api/tags", timeout=3)
+        if resp.status_code != 200:
+            return []
+        items = resp.json().get("models", [])
+    except (requests.RequestException, ValueError):
+        return []
+    result: List[Dict[str, Any]] = []
+    for item in items:
+        name = item.get("name")
+        if not name:
+            continue
+        details = item.get("details") or {}
+        result.append(
+            {
+                "name": name,
+                "size": int(item.get("size") or 0),
+                "params": details.get("parameter_size", ""),
+                "modified_at": item.get("modified_at", ""),
+            }
+        )
+    return sorted(result, key=lambda model: model["size"])
+
+
+def valid_model_name(name: str) -> bool:
+    return bool(MODEL_NAME_RE.match(name or ""))
+
+
+def pull_model(base_url: str, name: str) -> Iterator[Dict[str, Any]]:
+    """نصب یک مدل با Ollama و برگرداندن رخدادهای پیشرفت (NDJSON)."""
+    if not valid_model_name(name):
+        yield {"error": "نام مدل مجاز نیست."}
+        return
+    try:
+        with requests.post(
+            f"{base_url.rstrip('/')}/api/pull",
+            json={"model": name, "stream": True},
+            stream=True,
+            timeout=(5, 900),
+        ) as resp:
+            if resp.status_code != 200:
+                yield {"error": f"Ollama پاسخ {resp.status_code} داد."}
+                return
+            for line in resp.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+    except requests.RequestException as exc:
+        yield {"error": f"اتصال به Ollama ممکن نشد: {exc}"}
 
 
 class Brain:
