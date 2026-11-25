@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>راه‌اندازی دستیار دیجیتال — سه مسیر</title>
+  <meta name="description" content="راهنمای گام‌به‌گام راه‌اندازی دستیار دیجیتال: آفلاین با Ollama، سرور واسط Cloudflare Worker، یا نسخهٔ کامل Flask؛ همراه با دستورهای آمادهٔ کپی." />
+  <meta name="theme-color" content="#0b0d13" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236c8cff'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
+  <link rel="preload" href="fonts/vazirmatn-arabic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="setup.css" />
+</head>
+<body id="top">
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="index.html">
+      <span class="logo">✦</span>
+      <span class="brand-text"><strong>دستیار دیجیتال</strong><small>راه‌اندازی</small></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html#features">امکانات</a>
+      <a href="index.html#demo">دمو</a>
+      <a href="index.html#models">مدل‌ها</a>
+      <a href="setup.html" aria-current="page">راه‌اندازی</a>
+      <a class="gh" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">مخزن گیت‌هاب ↗</a>
+    </nav>
+  </header>
+
+  <main class="setup-main">
+    <section class="section setup-head">
+      <span class="tag">سه مسیر، یک دستیار</span>
+      <h1>خودتان اجرایش کنید</h1>
+      <p class="muted">
+        دموی سایت فقط نمایشی است. هر کدام از این سه مسیر را که انتخاب کنید، در چند دقیقه یک نسخهٔ واقعی و قابل استفاده دارید؛
+        دستورها را با دکمهٔ «کپی» بردارید. هیچ کلیدی در این صفحه نیست و همه‌چیز روی دستگاه خودتان یا حساب خودتان اجرا می‌شود.
+      </p>
+    </section>
+
+    <section class="section">
+      <div class="tabs" role="tablist" aria-label="روش‌های راه‌اندازی">
+        <button class="tab" role="tab" id="tab-ollama" aria-controls="panel-ollama" aria-selected="true" tabindex="0" type="button">
+          <span class="tab-ico">💻</span>
+          <span>آفلاین با Ollama</span>
+          <small>بدون کلید، روی دستگاه خودتان</small>
+        </button>
+        <button class="tab" role="tab" id="tab-worker" aria-controls="panel-worker" aria-selected="false" tabindex="-1" type="button">
+          <span class="tab-ico">☁️</span>
+          <span>سرور واسط (Worker)</span>
+          <small>کلید سمت سرور، مناسب دموی سایت</small>
+        </button>
+        <button class="tab" role="tab" id="tab-flask" aria-controls="panel-flask" aria-selected="false" tabindex="-1" type="button">
+          <span class="tab-ico">🐍</span>
+          <span>نسخهٔ کامل (Flask)</span>
+          <small>ابزار واقعی فایل و دستور</small>
+        </button>
+      </div>
+
+      <!-- ------------------------------------------------------- Ollama -->
+      <div class="panel" role="tabpanel" id="panel-ollama" aria-labelledby="tab-ollama" tabindex="0">
+        <p class="panel-lead">
+          مناسب وقتی می‌خواهید مدل روی دستگاه خودتان اجرا شود: بدون کلید API، بدون هزینهٔ سرویس ابری و بدون فرستادن داده به بیرون.
+          پیش‌نیاز: حدود ۴ گیگابایت فضای خالی و دست‌کم ۸ گیگابایت رم.
+        </p>
+
+        <h2>۱ · نصب Ollama</h2>
+        <p class="muted">
+          نصب‌کنندهٔ رسمی را برای سیستم خودتان از
+          <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a> بگیرید (لینوکس هم در همان صفحه دستور نصب دارد).
+          بعد از نصب، در ترمینال این دستور باید شمارهٔ نسخه را نشان دهد:
+        </p>
+        <div class="cmd">
+          <div class="cmd-head"><span>بررسی نصب</span><button class="copy" type="button" data-copy="#cmd-ollama-version">کپی</button></div>
+          <pre><code id="cmd-ollama-version">ollama --version</code></pre>
+        </div>
+
+        <h2>۲ · اجرای سرویس و دریافت مدل</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>ترمینال</span><button class="copy" type="button" data-copy="#cmd-ollama-run">کپی</button></div>
+          <pre><code id="cmd-ollama-run">ollama serve
+# در ترمینال دوم:
+ollama pull llama3.2:3b</code></pre>
+        </div>
+        <p class="muted small">مدل‌های پیشنهادی دیگر: <code>llama3.2:1b</code> (سبک‌ترین)، <code>qwen2.5:3b</code> (فارسی بهتر) و <code>qwen2.5:7b</code> (کیفیت بالاتر).</p>
+
+        <h2>۳ · استفاده در دموی سایت</h2>
+        <p class="muted">
+          صفحهٔ سایت HTTPS است و مرورگر اجازهٔ تماس مستقیم با <code>http://127.0.0.1</code> را نمی‌دهد. اسکریپت تونل، Ollama را با
+          <code>OLLAMA_ORIGINS</code> درست بالا می‌آورد و یک آدرس <code dir="ltr">https://…trycloudflare.com</code> می‌دهد؛ همان را در
+          بخش «مدل‌ها» → «آدرس Ollama» بگذارید.
+        </p>
+        <div class="cmd">
+          <div class="cmd-head"><span>داخل پوشهٔ پروژه</span><button class="copy" type="button" data-copy="#cmd-ollama-tunnel">کپی</button></div>
+          <pre><code id="cmd-ollama-tunnel">bash scripts/ollama_tunnel.sh</code></pre>
+        </div>
+        <p class="callout">
+          اگر Ollama را از قبل اجرا کرده‌اید، اول آن را ببندید: <code>OLLAMA_ORIGINS</code> فقط هنگام شروع فرآیند خوانده می‌شود.
+        </p>
+      </div>
+
+      <!-- ------------------------------------------------------- Worker -->
+      <div class="panel" role="tabpanel" id="panel-worker" aria-labelledby="tab-worker" tabindex="0" hidden>
+        <p class="panel-lead">
+          مناسب برای اینکه دموی سایت با مدل واقعی کار کند، بدون آنکه کلید API به مرورگر برسد. کلید به‌صورت Secret روی Cloudflare می‌ماند
+          و Worker فقط از دامنهٔ همین سایت (که در <code>ALLOWED_ORIGINS</code> است) پاسخ می‌گیرد.
+        </p>
+
+        <h2>۱ · حساب و ورود</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>ترمینال</span><button class="copy" type="button" data-copy="#cmd-worker-login">کپی</button></div>
+          <pre><code id="cmd-worker-login">git clone https://github.com/legolasoriginall/AI.git
+cd AI
+npx wrangler login</code></pre>
+        </div>
+
+        <h2>۲ · کلید API به‌صورت Secret</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>کلید را همین‌جا وارد کنید؛ در فایل ذخیره نمی‌شود</span><button class="copy" type="button" data-copy="#cmd-worker-secret">کپی</button></div>
+          <pre><code id="cmd-worker-secret">npx wrangler secret put NUMES_API_KEY</code></pre>
+        </div>
+
+        <h2>۳ · استقرار</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>یک دستور (ورود، Secret، deploy و تست)</span><button class="copy" type="button" data-copy="#cmd-worker-deploy">کپی</button></div>
+          <pre><code id="cmd-worker-deploy">bash scripts/deploy_worker.sh</code></pre>
+        </div>
+        <p class="muted small">اگر ترجیح می‌دهید دستی باشد:</p>
+        <div class="cmd">
+          <div class="cmd-head"><span>دستی</span><button class="copy" type="button" data-copy="#cmd-worker-manual">کپی</button></div>
+          <pre><code id="cmd-worker-manual">cd worker
+npx wrangler deploy</code></pre>
+        </div>
+
+        <h2>۴ · وصل کردن به دمو</h2>
+        <p class="muted">
+          آدرسی مثل <code dir="ltr">https://ai-assistant-proxy.&lt;account&gt;.workers.dev</code> می‌گیرید. در سایت: «اتصال مدل» →
+          «آدرس سرور واسط» → همان آدرس → «تست اتصال». اگر ۴۰۳ گرفتید، دامنهٔ سایت باید در <code>ALLOWED_ORIGINS</code> در
+          <code>worker/wrangler.toml</code> باشد.
+        </p>
+        <p class="callout">کلید Numes را هرگز در فایل، در صفحهٔ سایت یا در چت نگذارید؛ فقط با <code>wrangler secret put</code>.</p>
+      </div>
+
+      <!-- -------------------------------------------------------- Flask -->
+      <div class="panel" role="tabpanel" id="panel-flask" aria-labelledby="tab-flask" tabindex="0" hidden>
+        <p class="panel-lead">
+          نسخهٔ کامل با ابزارهای واقعی: ساخت و خواندن فایل، اجرای دستور (داخل پوشهٔ <code>workspace</code>)، حافظهٔ محلی در SQLite و
+          تاریخچهٔ چند گفتگو. همین‌جا می‌توانید Ollama یا هر endpoint سازگار با OpenAI را وصل کنید.
+        </p>
+
+        <h2>۱ · نصب</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>Python 3.10+</span><button class="copy" type="button" data-copy="#cmd-flask-install">کپی</button></div>
+          <pre><code id="cmd-flask-install">git clone https://github.com/legolasoriginall/AI.git
+cd AI
+python3 -m venv .venv
+source .venv/bin/activate        # ویندوز: .venv\Scripts\activate
+pip install -r requirements.txt</code></pre>
+        </div>
+
+        <h2>۲ · تنظیمات (اختیاری)</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>کلیدها فقط در .env می‌مانند</span><button class="copy" type="button" data-copy="#cmd-flask-env">کپی</button></div>
+          <pre><code id="cmd-flask-env">cp .env.example .env
+# ONLINE: OPENAI_BASE_URL + OPENAI_API_KEY + ONLINE_MODEL
+# آفلاین: چیزی لازم نیست؛ Ollama کافی است</code></pre>
+        </div>
+
+        <h2>۳ · اجرا</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>سپس http://127.0.0.1:3000</span><button class="copy" type="button" data-copy="#cmd-flask-run">کپی</button></div>
+          <pre><code id="cmd-flask-run">python server.py</code></pre>
+        </div>
+
+        <h2>یا با Docker</h2>
+        <div class="cmd">
+          <div class="cmd-head"><span>همان .env را می‌خواند</span><button class="copy" type="button" data-copy="#cmd-flask-docker">کپی</button></div>
+          <pre><code id="cmd-flask-docker">docker compose up --build -d</code></pre>
+        </div>
+        <p class="callout">
+          اجرای دستور و ابزارهای فایل برای استفادهٔ شخصی روی دستگاه خودتان طراحی شده‌اند؛ این نسخه را بدون احراز هویت روی اینترنت باز نکنید.
+        </p>
+      </div>
+
+      <div class="setup-next">
+        <a class="btn primary" href="index.html#demo">رفتن به دمو</a>
+        <a class="btn" href="index.html#models">مدیریت مدل‌ها</a>
+        <a class="btn" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">کد منبع ↗</a>
+        <span class="muted small" id="copyStatus" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong>دستیار دیجیتال</strong>
+        <p class="muted small">پروژهٔ متن‌باز · ساخته‌شده با Flask و SQLite</p>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">صفحهٔ اصلی</a>
+        <a href="index.html#demo">دمو</a>
+        <a href="https://github.com/legolasoriginall/AI/issues" target="_blank" rel="noopener">گزارش مشکل</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="setup.js"></script>
+</body>
+</html>
