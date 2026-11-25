@@ -322,3 +322,59 @@ body {
   .bubble { max-width: 88%; }
   .tool-card { margin-inline-start: 8px; }
 }
+
+/* ---------------------------------------------------------------- مدل‌ها */
+.panel.wide { width: min(720px, 100%); }
+.section-label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ok-text { color: var(--ok); }
+
+.model-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.model-item {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.model-item strong { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; }
+.model-actions { margin-inline-start: auto; display: flex; gap: 6px; }
+.model-empty { color: var(--muted); font-size: 12px; padding: 4px 2px; }
+
+.catalog { display: grid; gap: 8px; }
+.catalog-item {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 10px 11px;
+  display: grid;
+  gap: 6px;
+}
+.catalog-item.pulling { border-color: rgba(108, 140, 255, .6); }
+.catalog-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.catalog-head strong { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; }
+.catalog-item p { margin: 0; }
+.catalog-progress { height: 4px; border-radius: 99px; background: #1c2230; overflow: hidden; }
+.catalog-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .25s; }
+.catalog-state { font-size: 11px; min-height: 16px; }
+.catalog-actions { display: flex; gap: 6px; }
+
+.model-log {
+  margin: 0;
+  max-height: 150px;
+  overflow: auto;
+  background: #090b11;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #a9b6d6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
