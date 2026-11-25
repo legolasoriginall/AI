@@ -28,6 +28,7 @@
     <nav class="nav-links">
       <a href="#features">امکانات</a>
       <a href="#demo">دمو</a>
+      <a href="#models">مدل‌ها</a>
       <a href="#start">راه‌اندازی</a>
       <a class="gh" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">مخزن گیت‌هاب ↗</a>
     </nav>
@@ -137,6 +138,7 @@
             </div>
           </div>
           <div class="chat-actions">
+            <button class="ghost" id="openModels" type="button">مدل‌ها</button>
             <button class="ghost" id="toggleSettings" type="button">اتصال مدل</button>
             <button class="ghost" id="clearChat" type="button" title="شروع یک گفتگوی تازه">گفتگوی تازه</button>
           </div>
@@ -211,6 +213,56 @@
         </form>
         <p class="hint">دمو فقط برای آشنایی با تجربهٔ چت است؛ نسخهٔ کامل را از مخزن گیت‌هاب اجرا کنید.</p>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="models" class="section">
+      <div class="section-head">
+        <h2>مدل‌ها</h2>
+        <p>
+          دستیار خودش مدل‌ها را پیدا می‌کند: فهرست مدل‌های سرور واسط و endpoint آنلاین را می‌خواند، مدل پیشنهادی را دانلود و نصب می‌کند و بعد همان‌جا اجرایش می‌کند.
+          نصب و اجرای مدل محلی با Ollama از داخل مرورگر فقط روی آدرس HTTPS تونل‌شده یا در نسخهٔ کامل (localhost) ممکن است؛ اگر ممکن نبود، دستور آمادهٔ ترمینال نمایش داده می‌شود.
+        </p>
+      </div>
+
+      <div class="model-shell">
+        <div class="model-toolbar">
+          <label class="model-url">آدرس Ollama
+            <input id="ollamaUrl" type="url" dir="ltr" placeholder="http://127.0.0.1:11434" autocomplete="off" />
+          </label>
+          <button class="btn" id="modelsRefresh" type="button">جست‌وجوی دوباره</button>
+          <a class="btn" href="https://ollama.com/download" target="_blank" rel="noopener">دریافت Ollama ↗</a>
+          <span class="model-status" id="modelsStatus">در حال بررسی…</span>
+        </div>
+
+        <div class="model-grid">
+          <div class="model-card">
+            <h3>مدل‌های پیدا‌شده</h3>
+            <ul class="model-list" id="installedList"></ul>
+            <p class="muted small" id="ollamaHelp"></p>
+          </div>
+          <div class="model-card">
+            <h3>پیشنهاد دانلود</h3>
+            <div class="model-catalog" id="catalogList"></div>
+          </div>
+        </div>
+
+        <div class="model-log-wrap">
+          <div class="model-log-head">
+            <span>گزارش پیدا کردن، نصب و اجرا</span>
+            <button class="mini ghost" id="modelLogClear" type="button">پاک کردن</button>
+          </div>
+          <pre id="modelLog" dir="ltr"></pre>
+          <div class="model-cmd hidden" id="modelCmdWrap">
+            <span>اجرای دستی در ترمینال:</span>
+            <code id="modelCmd" dir="ltr"></code>
+            <button class="mini ghost" id="copyModelCmd" type="button">کپی</button>
+          </div>
+          <p class="muted small">
+            دانلود مستقیم از مرورگر فقط وقتی کار می‌کند که Ollama اجازهٔ همین دامنه را داشته باشد:
+            <code dir="ltr">OLLAMA_ORIGINS=https://legolasoriginall.github.io ollama serve</code>
+          </p>
         </div>
       </div>
     </section>
@@ -293,6 +345,7 @@ GEMINI_API_KEY=...</code></pre>
   <script src="data.js"></script>
   <script src="markdown.js"></script>
   <script src="agent.js"></script>
+  <script src="models.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
