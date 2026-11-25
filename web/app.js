@@ -298,5 +298,197 @@ document.getElementById('save-settings').addEventListener('click', async () => {
   loadStatus();
 });
 
+/* ------------------------------------------------------------------ مدل‌ها */
+const modelLogLines = [];
+
+function modelLog(line) {
+  const stamp = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  modelLogLines.push(`[${stamp}] ${line}`);
+  if (modelLogLines.length > 60) modelLogLines.shift();
+  const box = document.getElementById('model-log');
+  box.textContent = modelLogLines.join('\n');
+  box.scrollTop = box.scrollHeight;
+}
+
+function setModelsState(text, tone = '') {
+  const node = document.getElementById('models-state');
+  node.textContent = text;
+  node.className = tone ? `small ${tone}` : 'muted small';
+}
+
+function modelButton(label, className, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = className;
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+async function useModel(name) {
+  const res = await fetch('/api/models/use', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: name }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    modelLog(`✗ فعال‌سازی ${name} ناموفق: ${data.error || res.status}`);
+    return;
+  }
+  modelLog(`✅ مدل فعال: ${name}`);
+  document.getElementById('models-overlay').classList.add('hidden');
+  loadStatus();
+}
+
+async function installModel(name, card) {
+  const stateEl = card.querySelector('.catalog-state');
+  const bar = card.querySelector('.catalog-progress i');
+  card.classList.add('pulling');
+  modelLog(`شروع دانلود و نصب ${name}…`);
+  stateEl.textContent = 'در حال شروع…';
+
+  try {
+    const res = await fetch('/api/models/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: name }),
+    });
+    if (!res.ok || !res.body) throw new Error(`خطای شبکه (${res.status})`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop() ?? '';
+      for (const frame of frames) {
+        const line = frame.split('\n').find((l) => l.startsWith('data: '));
+        if (!line) continue;
+        let event;
+        try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (event.type === 'progress') {
+          if (event.percent) bar.style.width = `${event.percent}%`;
+          stateEl.textContent = [event.status, event.percent ? `${event.percent}٪` : ''].filter(Boolean).join(' · ');
+        } else if (event.type === 'error') {
+          modelLog(`✗ ${event.message}`);
+          stateEl.textContent = `ناموفق: ${event.message}`;
+        } else if (event.type === 'done') {
+          bar.style.width = '100%';
+          modelLog(`✅ ${name} نصب شد`);
+        }
+      }
+    }
+  } catch (error) {
+    modelLog(`✗ نصب ${name} ناموفق: ${error.message}`);
+    stateEl.textContent = `ناموفق: ${error.message}`;
+  } finally {
+    card.classList.remove('pulling');
+    await loadModels();
+  }
+}
+
+function renderModels(data) {
+  const installed = data.installed || [];
+  setModelsState(
+    data.ollama_ready
+      ? `Ollama آماده · ${installed.length} مدل نصب‌شده`
+      : 'Ollama در دسترس نیست؛ برای نصب و اجرا، ollama serve را اجرا کنید.',
+    data.ollama_ready ? 'ok-text' : 'error'
+  );
+
+  const list = document.getElementById('installed-models');
+  list.innerHTML = '';
+  if (!installed.length) {
+    const item = document.createElement('li');
+    item.className = 'model-empty';
+    item.textContent = 'هنوز مدلی نصب نیست؛ از فهرست پایین یکی را دانلود کنید.';
+    list.appendChild(item);
+  }
+  installed.forEach((model) => {
+    const item = document.createElement('li');
+    item.className = 'model-item';
+    const name = document.createElement('strong');
+    name.dir = 'ltr';
+    name.textContent = model.name;
+    const meta = document.createElement('span');
+    meta.className = 'muted small';
+    const gb = model.size ? (model.size / 1024 ** 3).toFixed(1) : '';
+    meta.textContent = [gb ? `${gb} GB` : '', model.params].filter(Boolean).join(' · ');
+    const actions = document.createElement('span');
+    actions.className = 'model-actions';
+    actions.appendChild(modelButton('استفاده', 'btn primary', () => useModel(model.name)));
+    item.append(name, meta, actions);
+    list.appendChild(item);
+  });
+
+  const catalog = document.getElementById('model-catalog');
+  catalog.innerHTML = '';
+  const names = new Set(installed.map((m) => m.name));
+  (data.catalog || []).forEach((model) => {
+    const ready = names.has(model.id) || names.has(`${model.id}:latest`);
+    const card = document.createElement('div');
+    card.className = 'catalog-item';
+
+    const head = document.createElement('div');
+    head.className = 'catalog-head';
+    const title = document.createElement('strong');
+    title.dir = 'ltr';
+    title.textContent = model.label;
+    const size = document.createElement('span');
+    size.className = 'muted small';
+    size.textContent = `${model.size} · رم ${model.ram}`;
+    head.append(title, size);
+
+    const note = document.createElement('p');
+    note.className = 'muted small';
+    note.textContent = model.note;
+
+    const progress = document.createElement('div');
+    progress.className = 'catalog-progress';
+    progress.appendChild(document.createElement('i'));
+
+    const state = document.createElement('div');
+    state.className = 'catalog-state small muted';
+
+    const actions = document.createElement('div');
+    actions.className = 'catalog-actions';
+    if (ready) {
+      actions.appendChild(modelButton('استفاده', 'btn primary', () => useModel(model.id)));
+    } else {
+      actions.appendChild(modelButton('دانلود و نصب', 'btn', () => installModel(model.id, card)));
+    }
+
+    card.append(head, note, progress, state, actions);
+    catalog.appendChild(card);
+  });
+}
+
+async function loadModels() {
+  try {
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    renderModels(data);
+  } catch (error) {
+    setModelsState(`خواندن فهرست مدل‌ها ناموفق بود: ${error.message}`, 'error');
+  }
+}
+
+document.getElementById('open-models').addEventListener('click', () => {
+  document.getElementById('models-overlay').classList.remove('hidden');
+  loadModels();
+});
+document.getElementById('close-models').addEventListener('click', () => {
+  document.getElementById('models-overlay').classList.add('hidden');
+});
+document.getElementById('models-overlay').addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) event.currentTarget.classList.add('hidden');
+});
+
 loadStatus();
 loadChats();
