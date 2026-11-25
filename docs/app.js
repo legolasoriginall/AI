@@ -590,6 +590,58 @@
     },
   };
 
+  /* ------------------------------------------------------------ بازپخش نمونه‌ها */
+  function applyEffect(effect) {
+    if (!effect) return;
+    if (effect.write) api.writeFile(effect.write.path, effect.write.content);
+    if (effect.remember) api.remember(effect.remember);
+    if (effect.open) selectFile(effect.open);
+  }
+
+  /* بخش «نمونه‌ها» با DemoChat.play یک گفتگوی کامل را در همین چت بازپخش می‌کند. */
+  window.DemoChat = {
+    play: async (sample) => {
+      if (!sample || !Array.isArray(sample.turns) || busy) return;
+      run = { cancelled: false, controller: null };
+      setBusy(true);
+      messagesEl.innerHTML = "";
+      try {
+        if (isLive()) {
+          sysNotice("این نمونه در حالت نمایشی بازپخش می‌شود؛ برای پاسخ واقعی مدل، همین درخواست را در چت بفرستید.");
+        }
+        for (const turn of sample.turns) {
+          addUser(turn.user);
+          for (const step of turn.steps || []) {
+            if (run.cancelled) return;
+            const finish = addToolCard(step.tool, step.args || {}, "در حال اجرا…");
+            await wait(420);
+            if (run.cancelled) {
+              finish("متوقف شد");
+              return;
+            }
+            applyEffect(step.effect);
+            finish(step.state || "انجام شد", step.result || "");
+            await wait(180);
+          }
+          if (run.cancelled) return;
+          const bubble = addAssistantShell();
+          await wait(160);
+          if (run.cancelled) {
+            bubble.textContent = "(متوقف شد)";
+            return;
+          }
+          bubble.textContent = "";
+          bubble.appendChild(render(turn.reply));
+          scrollDown();
+          await wait(200);
+        }
+      } finally {
+        run = null;
+        setBusy(false);
+      }
+    },
+  };
+
   /* ------------------------------------------------------------ آغاز */
   loadSettings();
   loadWorkspace();
