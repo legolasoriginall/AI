@@ -5,6 +5,7 @@
  *
  * مسیرها:
  *   POST /api/chat   { messages: [{role, content}], stream?: boolean }
+ *   GET  /api/models فهرست مدل‌های مجاز این سرور (برای مدیر مدل‌های دمو)
  *   OPTIONS *        پیش‌پرواز CORS
  *   GET  /health     بررسی سریع استقرار (بدون تماس با سرویس بالادست)
  */
@@ -51,7 +52,7 @@ function corsHeaders(origin, allowedOrigins) {
   const allowlist = list(allowedOrigins);
   const headers = {
     Vary: "Origin",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
   };
@@ -109,6 +110,20 @@ export default {
       return jsonResponse(
         200,
         { ok: true, configured: Boolean(env.NUMES_API_KEY), model: env.MODEL || "openai/gpt-6-luna" },
+        cors
+      );
+    }
+
+    if (url.pathname === "/api/models") {
+      if (allowlist.length && origin && !allowlist.includes(origin)) {
+        return jsonResponse(403, { error: "origin_not_allowed" }, { Vary: "Origin" });
+      }
+      if (request.method !== "GET") return jsonResponse(405, { error: "method_not_allowed" }, cors);
+      const configured = list(env.MODELS);
+      const models = configured.length ? configured : [env.MODEL || "openai/gpt-6-luna"];
+      return jsonResponse(
+        200,
+        { models: models.map((id) => ({ id, label: id })), default: env.MODEL || models[0] },
         cors
       );
     }
@@ -197,7 +212,7 @@ export default {
       } catch {
         message = safeMessage(detail);
       }
-      const status = upstream.status === 429 ? 429 : upstream.status === 401 || upstream.status === 403 ? 502 : 502;
+      const status = upstream.status === 429 ? 429 : 502;
       const error = upstream.status === 429 ? "upstream_rate_limited" : "upstream_error";
       return jsonResponse(status, { error, status: upstream.status, message }, cors);
     }

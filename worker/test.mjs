@@ -65,6 +65,37 @@ const goodMessages = [{ role: "user", content: "سلام" }];
 }
 
 {
+  const res = await call("/api/models", { method: "GET", headers: { Origin: "https://legolasoriginall.github.io" } });
+  const body = await res.json();
+  check(
+    "models lists server model",
+    res.status === 200 && body.models.some((model) => model.id === "openai/gpt-6-luna"),
+    JSON.stringify(body)
+  );
+  check("models default comes from env", body.default === "openai/gpt-6-luna", body.default);
+}
+
+{
+  const res = await call(
+    "/api/models",
+    { method: "GET", headers: { Origin: "https://legolasoriginall.github.io" } },
+    { ...BASE_ENV, MODELS: "a/one,b/two" }
+  );
+  const body = await res.json();
+  check("models uses MODELS allowlist", body.models.length === 2 && body.models[1].id === "b/two", JSON.stringify(body));
+}
+
+{
+  const res = await call("/api/models", { method: "POST" });
+  check("405 for POST on /api/models", res.status === 405, res.status);
+}
+
+{
+  const res = await call("/api/models", { method: "GET", headers: { Origin: "https://evil.example" } });
+  check("403 for foreign origin on models", res.status === 403, res.status);
+}
+
+{
   const res = await call("/api/chat", {
     method: "OPTIONS",
     headers: { Origin: "https://legolasoriginall.github.io" },
