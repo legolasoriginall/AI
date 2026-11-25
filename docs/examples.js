@@ -5,6 +5,42 @@ window.DemoExamples = (() => {
   "use strict";
 
   const { SNIPPETS, RUN_OUTPUT, DEFAULT_FILES } = window.DemoData;
+
+  /* استایل کوچک این بخش همراه خودش می‌آید تا بقیهٔ style.css دست نخورد. */
+  const STYLE = `
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.example-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.example-card h3 { margin: 0; font-size: 15px; }
+.example-card p { margin: 0; }
+.example-card .btn { margin-top: auto; align-self: flex-start; }
+.example-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.example-tools code {
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(108, 140, 255, .10);
+  border: 1px solid rgba(108, 140, 255, .22);
+  color: #b9c6ff;
+}
+`;
+
+  function injectStyle() {
+    if (document.getElementById("exampleStyles")) return;
+    const style = document.createElement("style");
+    style.id = "exampleStyles";
+    style.textContent = STYLE;
+    document.head.appendChild(style);
+  }
+
   const notes = DEFAULT_FILES["notes.txt"];
   const memoryFact = "کاربر در تهران زندگی می‌کند و ساعت کاری‌اش ۹ تا ۱۷ است.";
 
@@ -177,7 +213,10 @@ window.DemoExamples = (() => {
   }
 
   const grid = document.getElementById("exampleGrid");
-  if (grid) mount(grid);
+  if (grid) {
+    injectStyle();
+    mount(grid);
+  }
 
   return { list, mount };
 })();
