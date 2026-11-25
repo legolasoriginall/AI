@@ -33,6 +33,7 @@
           <strong id="provider-label">دستیار</strong>
           <span class="muted" id="model-label"></span>
         </div>
+        <button class="icon-btn" id="open-models" title="مدل‌ها: پیدا کردن، نصب و اجرا">⬇</button>
         <button class="icon-btn" id="open-settings" title="تنظیمات">⚙</button>
       </header>
 
@@ -92,6 +93,28 @@
       </label>
       <p class="muted small">کلیدهای API از فایل <code>.env</code> خوانده می‌شوند؛ اینجا وارد نشوند.</p>
       <button class="btn primary" id="save-settings">ذخیره</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="models-overlay">
+    <div class="panel wide">
+      <div class="panel-head">
+        <h3>مدل‌ها</h3>
+        <button class="icon-btn" id="close-models">✕</button>
+      </div>
+      <p class="muted small" id="models-state">در حال بررسی Ollama…</p>
+
+      <h4 class="section-label">نصب‌شده</h4>
+      <ul class="model-list" id="installed-models"></ul>
+
+      <h4 class="section-label">پیشنهاد دانلود</h4>
+      <div class="catalog" id="model-catalog"></div>
+
+      <pre class="model-log" id="model-log" dir="ltr"></pre>
+      <p class="muted small">
+        دانلود از همین صفحه انجام می‌شود و با <code>ollama pull</code> در ترمینال فرقی ندارد.
+        اگر Ollama در دسترس نبود، همان دستور را دستی در ترمینال اجرا کنید.
+      </p>
     </div>
   </div>
 
