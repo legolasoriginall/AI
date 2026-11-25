@@ -352,6 +352,7 @@ async function installModel(name, card) {
 
   const controller = new AbortController();
   pullController = controller;
+  let note = '';
   const actions = card.querySelector('.catalog-actions');
   const installBtn = actions ? actions.querySelector('button') : null;
   if (installBtn) installBtn.disabled = true;
@@ -386,8 +387,9 @@ async function installModel(name, card) {
           if (event.percent) bar.style.width = `${event.percent}%`;
           stateEl.textContent = [event.status, event.percent ? `${event.percent}٪` : ''].filter(Boolean).join(' · ');
         } else if (event.type === 'error') {
+          note = `ناموفق: ${event.message}`;
           modelLog(`✗ ${event.message}`);
-          stateEl.textContent = `ناموفق: ${event.message}`;
+          stateEl.textContent = note;
         } else if (event.type === 'done') {
           bar.style.width = '100%';
           modelLog(`✅ ${name} نصب شد`);
@@ -397,16 +399,22 @@ async function installModel(name, card) {
   } catch (error) {
     if (error.name === 'AbortError' || controller.signal.aborted) {
       bar.style.width = '0%';
-      stateEl.textContent = 'لغو شد';
+      note = 'لغو شد';
+      stateEl.textContent = note;
       modelLog(`⏹ دانلود ${name} لغو شد`);
     } else {
+      note = `ناموفق: ${error.message}`;
       modelLog(`✗ نصب ${name} ناموفق: ${error.message}`);
-      stateEl.textContent = `ناموفق: ${error.message}`;
+      stateEl.textContent = note;
     }
   } finally {
     if (pullController === controller) pullController = null;
     card.classList.remove('pulling');
     await loadModels();
+    if (note) {
+      const fresh = document.querySelector(`.catalog-item[data-model-id="${name}"] .catalog-state`);
+      if (fresh) fresh.textContent = note;
+    }
   }
 }
 
@@ -451,6 +459,7 @@ function renderModels(data) {
     const ready = names.has(model.id) || names.has(`${model.id}:latest`);
     const card = document.createElement('div');
     card.className = 'catalog-item';
+    card.dataset.modelId = model.id;
 
     const head = document.createElement('div');
     head.className = 'catalog-head';
