@@ -79,6 +79,12 @@ async function loadStatus() {
       els.providerLabel.textContent = 'بدون مدل';
     }
     els.modelLabel.textContent = data.ollama_model || data.model || '';
+    if (data.ollama_model_missing) {
+      els.statusText.textContent = data.ollama_ready
+        ? `مدل فعال «${data.active_model}» نصب نیست`
+        : `Ollama در دسترس نیست (مدل فعال: ${data.active_model})`;
+      els.providerLabel.textContent = 'مدل فعال آماده نیست';
+    }
   } catch {
     els.statusText.textContent = 'سرور در دسترس نیست';
   }

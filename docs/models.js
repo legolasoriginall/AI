@@ -15,6 +15,7 @@ window.DemoModels = (() => {
   ];
 
   const OLLAMA_KEY = "assistant.ollama.url.v1";
+  const ACTIVE_KEY = "assistant.activeModel.v1";
   const DEFAULT_OLLAMA = "http://127.0.0.1:11434";
   const LABEL = { ollama: "Ollama", proxy: "سرور واسط", online: "آنلاین" };
   const $ = (id) => document.getElementById(id);
@@ -171,6 +172,38 @@ window.DemoModels = (() => {
 
     await Promise.all(jobs);
     render();
+    verifySavedModel();
+  }
+
+  /* مدل فعال ذخیره‌شده پس از باز کردن دوبارهٔ صفحه هم باید همان مدل باشد؛
+     اگر دیگر نصب نباشد، پیام روشن می‌دهیم تا کاربر مدل تازه‌ای انتخاب کند. */
+  function savedActive() {
+    try {
+      return JSON.parse(localStorage.getItem(ACTIVE_KEY) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function verifySavedModel() {
+    const saved = savedActive();
+    if (!saved || !saved.id || saved.kind !== "ollama") return;
+    if (settings().model !== saved.id) return;
+    if (!state.ollama.online) {
+      setStatus("مدل فعال «" + saved.id + "» در دسترس نیست: Ollama پاسخ نمی‌دهد. Ollama را اجرا کنید یا مدل دیگری انتخاب کنید.", "fail");
+      log("⚠ مدل فعال «" + saved.id + "» در دسترس نیست؛ Ollama پاسخ نداد.");
+      return;
+    }
+    const installed = state.ollama.models.some(
+      (item) => item.id === saved.id || item.id === saved.id + ":latest" || saved.id === item.id + ":latest"
+    );
+    if (!installed) {
+      setStatus(
+        "مدل فعال «" + saved.id + "» دیگر نصب نیست. یکی از مدل‌های زیر را انتخاب کنید یا همان مدل را دوباره دانلود کنید؛ تا آن موقع پاسخ‌های چت با خطا روبه‌رو می‌شوند.",
+        "fail"
+      );
+      log("⚠ مدل فعال «" + saved.id + "» روی این دستگاه نصب نیست.");
+    }
   }
 
   /* ---------------------------------------------------------- اجرا */
@@ -186,6 +219,11 @@ window.DemoModels = (() => {
       window.AssistantSettings.useModel({ kind: "online", model: entry.id, baseUrl: trim(settings().baseUrl) });
     }
     log("مدل فعال: " + entry.id + " · " + LABEL[entry.source]);
+    try {
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify({ kind: entry.source, id: entry.id, base: entry.base }));
+    } catch {
+      /* حالت خصوصی */
+    }
   }
 
   async function testModel(entry) {
@@ -252,17 +290,18 @@ window.DemoModels = (() => {
       return;
     }
     list.innerHTML = all
-      .map(
-        (entry, index) => `<li class="model-row">
+      .map((entry, index) => {
+        const active = Boolean(settings().model) && entry.id === settings().model;
+        return `<li class="model-row">
           <span class="model-src ${entry.source}">${LABEL[entry.source]}</span>
           <strong class="model-name" dir="ltr">${esc(entry.id)}</strong>
-          <span class="muted small model-meta">${esc([formatBytes(entry.size), entry.params].filter(Boolean).join(" · ") || "آماده")}</span>
+          <span class="muted small model-meta">${esc([active ? "فعال" : "", formatBytes(entry.size), entry.params].filter(Boolean).join(" · ") || "آماده")}</span>
           <span class="model-actions">
             <button class="mini ghost" type="button" data-act="test" data-i="${index}">اجرا</button>
             <button class="mini primary" type="button" data-act="use" data-i="${index}">استفاده در چت</button>
           </span>
-        </li>`
-      )
+        </li>`;
+      })
       .join("");
     list.querySelectorAll("button[data-act]").forEach((button) => {
       const entry = all[Number(button.dataset.i)];
