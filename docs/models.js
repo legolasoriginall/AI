@@ -236,6 +236,12 @@ window.DemoModels = (() => {
   }
 
   /* ---------------------------------------------------------- رندر */
+  function render() {
+    renderInstalled();
+    renderCatalog();
+    renderStatus();
+  }
+
   function renderInstalled() {
     const list = $("installedList");
     if (!list) return;
