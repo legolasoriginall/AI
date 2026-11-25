@@ -196,9 +196,10 @@
         modeHint.textContent = "کلید سمت سرور";
       }
     } else if (isLive()) {
-      modeLabel.textContent = "متصل به مدل";
+      const local = /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0)([:/]|$)/i.test(settings.baseUrl);
+      modeLabel.textContent = local ? "مدل محلی" : "متصل به مدل";
       try {
-        modeHint.textContent = settings.model + " · " + new URL(settings.baseUrl).host;
+        modeHint.textContent = settings.model + " · " + (local ? "Ollama روی همین دستگاه" : new URL(settings.baseUrl).host);
       } catch {
         modeHint.textContent = settings.model;
       }
@@ -553,8 +554,45 @@
     sysNotice("فضای کاری دمو و حافظه پاک شدند و به حالت اولیه برگشتند. (گفتگو دست نخورده است.)");
   });
 
+  /* ------------------------------------------------------------ پل مدیر مدل‌ها */
+  function syncSettingsInputs() {
+    baseUrlEl.value = settings.baseUrl;
+    modelNameEl.value = settings.model;
+    apiKeyEl.value = settings.apiKey;
+    proxyUrlEl.value = settings.proxyUrl;
+  }
+
+  /* مدیر مدل‌ها (models.js) از این پل مدل انتخاب‌شده را در چت فعال می‌کند. */
+  window.AssistantSettings = {
+    snapshot: () => ({ baseUrl: settings.baseUrl, model: settings.model, proxyUrl: settings.proxyUrl, apiKey: settings.apiKey }),
+    useModel: (choice) => {
+      if (!choice) return;
+      if (choice.kind === "proxy") {
+        settings = { ...settings, proxyUrl: choice.baseUrl || "", baseUrl: "", apiKey: "", model: "" };
+        saveSettings();
+        syncSettingsInputs();
+        renderMode();
+        settingsForm.classList.add("hidden");
+        sysNotice("سرور واسط «" + (choice.baseUrl || "") + "» برای چت فعال شد؛ مدل را سرور انتخاب می‌کند و کلیدی به مرورگر نمی‌رسد.");
+        return;
+      }
+      settings = { ...settings, proxyUrl: "", baseUrl: choice.baseUrl || "", model: choice.model || "" };
+      saveSettings();
+      syncSettingsInputs();
+      renderMode();
+      settingsForm.classList.add("hidden");
+      sysNotice(
+        "مدل «" +
+          (choice.model || "") +
+          "» برای چت فعال شد." +
+          (choice.kind === "ollama" ? " این مدل روی همین دستگاه با Ollama اجرا می‌شود." : "")
+      );
+    },
+  };
+
   /* ------------------------------------------------------------ آغاز */
   loadSettings();
   loadWorkspace();
   renderWorkspace();
+  if (window.DemoModels) window.DemoModels.init();
 })();
