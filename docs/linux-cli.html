@@ -1,11 +1,19 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><title>style probe</title>
-<style>
-:root{--bg:#0f1115;--panel:#171a21;--line:#2a2f3a;--text:#e8eaf0;--accent:#7cc4ff}
-body{margin:0;background:var(--bg);color:var(--text)}
-main{max-width:820px;margin:0 auto;padding:28px 18px}
-</style>
-</head>
-<body><main><h1>آزمون</h1></main></body>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>بخش۱</title></head>
+<body>
+<main>
+<header><a href="https://github.com/legolasoriginall/AI#readme">✦ دستیار دیجیتال</a><a href="https://github.com/legolasoriginall/AI">مخزن ↗</a></header>
+<h1>راه‌اندازی روی لینوکس — فقط با ترمینال</h1>
+<p class="lead">نسخهٔ کوتاه دستورهای README: نصب، قرارداد <code>.env</code>، اجرا، مدل و عیب‌یابی.</p>
+<h2>۱ · نصب</h2>
+<pre><code>git clone https://github.com/legolasoriginall/AI.git
+cd AI
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python3 cli.py --list-models</code></pre>
+<p>پیش‌نیاز: لینوکس، <code>bash</code> و پایتون ۳.۱۰+.</p>
+</main>
+</body>
 </html>
