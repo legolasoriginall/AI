@@ -1,10 +1,11 @@
 services:
   assistant:
     build: .
-    ports:
-      - "3000:3000"
     env_file:
-      - .env
+      - path: .env
+        required: false
+    stdin_open: true
+    tty: true
     volumes:
       - ./workspace:/app/workspace
       - ./data:/app/data

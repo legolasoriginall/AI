@@ -1,4 +1,4 @@
-"""ابزارهای مشترک تست‌ها: دادهٔ جداشده، کلاینت Flask و یک Ollama جعلی.
+"""ابزارهای مشترک تست‌ها: دادهٔ جداشده و یک Ollama جعلی.
 
 هیچ تستی به شبکهٔ بیرونی یا Ollama واقعی نیاز ندارد: همهٔ درخواست‌ها به یک
 سرور محلی می‌رود که فقط همان مسیرهایی را دارد که برنامه صدا می‌زند.
@@ -27,8 +27,6 @@ store.DATA_DIR = TMP
 store.DB_PATH = TMP / "assistant.db"
 store.SETTINGS_PATH = TMP / "settings.json"
 store.init_db()
-
-import server  # noqa: E402
 
 DEFAULT_PULL_PLAN = [
     {"status": "pulling manifest"},
@@ -140,27 +138,8 @@ def clean_settings():
 
 
 @pytest.fixture
-def client():
-    server.app.config.update(TESTING=True)
-    return server.app.test_client()
-
-
-@pytest.fixture
 def ollama():
     fake = FakeOllama()
     store.save_settings({"ollama_url": fake.url})
     yield fake
     fake.stop()
-
-
-@pytest.fixture
-def parse_sse():
-    def parse(payload: bytes):
-        events = []
-        for frame in payload.decode("utf-8").split("\n\n"):
-            for line in frame.splitlines():
-                if line.startswith("data: "):
-                    events.append(json.loads(line[6:]))
-        return events
-
-    return parse

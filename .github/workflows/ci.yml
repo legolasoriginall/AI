@@ -7,13 +7,17 @@ on:
 
 jobs:
   python:
-    name: pytest, py_compile, catalog
+    name: pytest (${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
           cache: pip
       - name: Install dependencies
         run: |
@@ -21,35 +25,5 @@ jobs:
           pip install -r requirements-dev.txt
       - name: py_compile (all modules)
         run: python -m py_compile $(git ls-files '*.py')
-      - name: Catalog consistency
-        run: python scripts/check_catalog.py
       - name: Pytest
         run: python -m pytest
-
-  worker:
-    name: worker tests, node --check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: node --check (all JS/MJS)
-        run: |
-          set -euo pipefail
-          checked=0
-          while IFS= read -r file; do
-            target="$file"
-            # فایل‌های ESM با پسوند .js باید به‌صورت ماژول بررسی شوند.
-            if [ "${file##*.}" = "js" ] && grep -qE '^[[:space:]]*(import|export)[[:space:]]' "$file"; then
-              target="$(mktemp --suffix=.mjs)"
-              cp "$file" "$target"
-            fi
-            node --check "$target"
-            if [ "$target" != "$file" ]; then rm -f "$target"; fi
-            checked=$((checked + 1))
-            echo "ok  $file"
-          done < <(git ls-files '*.js' '*.mjs')
-          echo "بررسی شد: $checked فایل"
-      - name: Worker tests
-        run: node worker/test.mjs

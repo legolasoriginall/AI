@@ -1,4 +1,4 @@
-"""تست CLI خط فرمان و استریم: بدون Flask، با ابزارها."""
+"""تست CLI خط فرمان و استریم: با ابزارها."""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,6 @@ def test_cli_oneshot_streams_answer(capsys, monkeypatch):
     assert cli.main(["-m", "سلام"]) == 0
     out = capsys.readouterr().out
     assert "سلام دنیا" in out
-    assert "flask" not in out.lower()
 
 
 def test_cli_loads_dotenv(tmp_path, monkeypatch):
