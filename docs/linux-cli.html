@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>راه‌اندازی روی لینوکس (خط فرمان) — دستیار دیجیتال</title>
+  <meta name="description" content="راهنمای کامل و تأییدشدهٔ راه‌اندازی دستیار دیجیتال روی لینوکس با خط فرمان: Ollama، Flask، سرور واسط Worker، تونل HTTPS، Docker و عیب‌یابی." />
+  <meta name="theme-color" content="#0b0d13" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236c8cff'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
+  <link rel="preload" href="fonts/vazirmatn-arabic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="setup.css" />
+  <link rel="stylesheet" href="linux-cli.css" />
+</head>
+<body id="top">
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="index.html">
+      <span class="logo">✦</span>
+      <span class="brand-text"><strong>دستیار دیجیتال</strong><small>راهنمای لینوکس</small></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html#features">امکانات</a>
+      <a href="index.html#demo">دمو</a>
+      <a href="index.html#models">مدل‌ها</a>
+      <a href="setup.html">راه‌اندازی</a>
+      <a href="linux-cli.html" aria-current="page">لینوکس</a>
+      <a class="gh" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">مخزن گیت‌هاب ↗</a>
+    </nav>
+  </header>
+
+  <main class="guide-main">
+    <section class="section guide-head">
+      <span class="tag">لینوکس · فقط خط فرمان</span>
+      <h1>راه‌اندازی کامل روی لینوکس — فقط با ترمینال</h1>
+      <p class="muted">
+        از صفر تا اجرا و آزمایش، بدون رابط گرافیکی: Ollama، نسخهٔ کامل Flask، سرور واسط Cloudflare Worker،
+        تونل HTTPS، Docker و عیب‌یابی. بخش Flask این راهنما در یک محیط تازه واقعاً اجرا و تأیید شده است.
+      </p>
+      <div class="guide-actions">
+        <a class="btn primary" href="setup.html">سه مسیر راه‌اندازی</a>
+        <a class="btn" href="index.html#demo">دموی زنده</a>
+        <a class="btn" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">کد منبع ↗</a>
+      </div>
+    </section>
+
+    <div class="section guide-layout">
+      <nav class="guide-toc" aria-label="فهرست بخش‌ها">
+        <strong>فهرست</strong>
+        <ul><li><a href="#sec-2">۰ · آماده‌سازی محیط</a></li><li><a href="#sec-6">۱ · گرفتن پروژه و شناختن ساختار</a></li><li><a href="#sec-7">۲ · مسیر آفلاین: نصب Ollama روی لینوکس</a></li><li><a href="#sec-13">۳ · نسخهٔ کامل Flask (رابط وب + ابزار واقعی)</a></li><li><a href="#sec-22">۴ · مسیر سرور واسط: Cloudflare Worker</a></li><li><a href="#sec-31">۵ · تونل HTTPS برای Ollama (استفاده از دموی Pages)</a></li><li><a href="#sec-34">۶ · مسیر Docker (بدون venv)</a></li><li><a href="#sec-35">۷ · عیب‌یابی</a></li><li><a href="#sec-36">۸ · امنیت و نگهداری</a></li><li><a href="#sec-37">۹ · چک‌لیست کوتاه</a></li></ul>
+      </nav>
+      <article class="guide-body">
+<p>این راهنما همان سه مسیر سایت (آفلاین با Ollama، سرور واسط Worker، نسخهٔ کامل Flask) را برای محیط لینوکسی و بدون هیچ رابط گرافیکی، از صفر تا اجرا و آزمایش، توضیح می‌دهد. همهٔ دستورها در <code>bash</code> اجرا می‌شوند و روی اوبونتو/دبیان، فدورا، آرچ و توزیع‌های مبتنی بر آنها کار می‌کنند؛ تفاوت‌ها جداگانه گفته شده است.</p>
+<blockquote>
+<p>مسیر پیشنهادی برای شروع: <strong>بخش ۲ (Flask) + بخش ۳ (Ollama)</strong>. با این دو، هم مدل آفلاین داری و هم رابط کامل با ابزار فایل و دستور. اگر فقط می‌خواهی دموی سایت با مدل واقعی کار کند، <strong>بخش ۴ (Worker)</strong> را برو.</p>
+</blockquote>
+<h2 id="sec-2">۰ · آماده‌سازی محیط</h2>
+<h3 id="sec-3">بررسی پیش‌نیازها</h3>
+<pre><code class="language-bash">uname -m                     # x86_64 یا aarch64
+lsb_release -d 2&gt;/dev/null || cat /etc/os-release
+python3 --version            # باید 3.10 یا بالاتر باشد
+git --version
+curl --version | head -1
+</code></pre>
+<p>اگر <code>python3</code> نیست:</p>
+<pre><code class="language-bash">sudo apt update &amp;&amp; sudo apt install -y python3 python3-venv python3-pip git curl
+# فدورا: sudo dnf install -y python3 python3-pip git curl
+# آرچ:   sudo pacman -S --needed python python-pip git curl
+</code></pre>
+<h3 id="sec-4">منابع لازم</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>کاربرد</th>
+<th>رم</th>
+<th>فضای دیسک</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>فقط Flask + مدل ابری</td>
+<td>۱ گیگابایت</td>
+<td>۵۰۰ مگابایت</td>
+</tr>
+<tr>
+<td>Ollama با <code>llama3.2:1b</code></td>
+<td>۴ گیگابایت</td>
+<td>۳ گیگابایت</td>
+</tr>
+<tr>
+<td>Ollama با <code>llama3.2:3b</code></td>
+<td>۸ گیگابایت</td>
+<td>۵ گیگابایت</td>
+</tr>
+<tr>
+<td>Ollama با <code>qwen2.5:7b</code></td>
+<td>۱۶ گیگابایت</td>
+<td>۸ گیگابایت</td>
+</tr>
+</tbody>
+</table></div>
+<p>بررسی سریع:</p>
+<pre><code class="language-bash">free -h
+df -h &quot;$HOME&quot;
+</code></pre>
+<h3 id="sec-5">گرفتن کد</h3>
+<pre><code class="language-bash">cd ~
+git clone https://github.com/legolasoriginall/AI.git
+cd AI
+</code></pre>
+<p>همهٔ دستورهای بعدی، مگر آنکه خلافش گفته شود، داخل همین پوشهٔ <code>AI</code> اجرا می‌شوند.</p>
+<h2 id="sec-6">۱ · گرفتن پروژه و شناختن ساختار</h2>
+<pre><code class="language-bash">ls
+# agent.py  providers.py  server.py  store.py  tools.py  web/  docs/  worker/  scripts/
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>مسیر</th>
+<th>نقش</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>server.py</code></td>
+<td>سرور Flask؛ رابط وب، استریم چت، نشست‌ها، مدل‌ها</td>
+</tr>
+<tr>
+<td><code>providers.py</code></td>
+<td>روتر مدل‌ها: Ollama، Gemini، هر endpoint سازگار با OpenAI</td>
+</tr>
+<tr>
+<td><code>agent.py</code> + <code>tools.py</code></td>
+<td>حلقهٔ عامل و ابزارهای فایل/شل/حافظه</td>
+</tr>
+<tr>
+<td><code>store.py</code></td>
+<td>SQLite برای گفتگوها، حافظه و تنظیمات</td>
+</tr>
+<tr>
+<td><code>worker/</code></td>
+<td>سرور واسط Cloudflare برای دموی سایت</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>سایت استاتیک GitHub Pages (فقط نمایشی)</td>
+</tr>
+<tr>
+<td><code>scripts/</code></td>
+<td><code>deploy_worker.sh</code>، <code>ollama_tunnel.sh</code>، <code>check_catalog.py</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="sec-7">۲ · مسیر آفلاین: نصب Ollama روی لینوکس</h2>
+<p>مدل روی همین دستگاه اجرا می‌شود: بدون کلید API، بدون هزینه، بدون ارسال داده به بیرون.</p>
+<h3 id="sec-8">نصب</h3>
+<p>نصب‌کنندهٔ رسمی:</p>
+<pre><code class="language-bash">curl -fsSL https://ollama.com/install.sh | sh
+ollama --version
+</code></pre>
+<p>اگر <code>sudo</code> نداری یا نصب با اسکریپت را نمی‌خواهی، بستهٔ آماده را دستی بگیر (نسخه را از <a href="https://ollama.com/download/linux">ollama.com/download/linux</a> بردار):</p>
+<pre><code class="language-bash">mkdir -p ~/.local/ollama &amp;&amp; cd ~/.local/ollama
+curl -fL -o ollama.tgz &quot;https://ollama.com/download/ollama-linux-amd64.tgz&quot;   # aarch64: ollama-linux-arm64.tgz
+tar -xzf ollama.tgz
+export PATH=&quot;$HOME/.local/ollama/bin:$PATH&quot;
+ollama --version
+</code></pre>
+<p>برای دائمی‌شدن <code>PATH</code>، این خط را به <code>~/.bashrc</code> اضافه کن:</p>
+<pre><code class="language-bash">echo 'export PATH=&quot;$HOME/.local/ollama/bin:$PATH&quot;' &gt;&gt; ~/.bashrc &amp;&amp; source ~/.bashrc
+</code></pre>
+<h3 id="sec-9">اجرای سرویس</h3>
+<p>روی سیستمی که <code>systemd</code> دارد، نصب‌کننده خودش سرویس می‌سازد:</p>
+<pre><code class="language-bash">sudo systemctl enable --now ollama
+systemctl status ollama --no-pager
+</code></pre>
+<p>بدون <code>systemd</code> (کانتینر، WSL، سرور اشتراکی) در یک ترمینال جدا:</p>
+<pre><code class="language-bash">ollama serve
+# یا در پس‌زمینه:
+nohup ollama serve &gt; ~/ollama.log 2&gt;&amp;1 &amp;
+echo $! &gt; ~/ollama.pid
+</code></pre>
+<h3 id="sec-10">آزمایش سرویس</h3>
+<pre><code class="language-bash">curl -s http://127.0.0.1:11434/api/tags
+# {&quot;models&quot;:[]}  ← خالی است چون هنوز مدلی نگرفته‌ایم
+</code></pre>
+<h3 id="sec-11">گرفتن مدل</h3>
+<pre><code class="language-bash">ollama pull llama3.2:3b
+</code></pre>
+<p>مدل‌های پیشنهادی پروژه:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>مدل</th>
+<th>حجم تقریبی</th>
+<th>مناسب برای</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>llama3.2:1b</code></td>
+<td>~۱.۳ گیگابایت</td>
+<td>سبک‌ترین، سیستم کم‌رم</td>
+</tr>
+<tr>
+<td><code>llama3.2:3b</code></td>
+<td>~۲ گیگابایت</td>
+<td>تعادل سرعت و کیفیت</td>
+</tr>
+<tr>
+<td><code>qwen2.5:3b</code></td>
+<td>~۱.۹ گیگابایت</td>
+<td>فارسی بهتر، همان حجم</td>
+</tr>
+<tr>
+<td><code>gemma2:2b</code></td>
+<td>~۱.۶ گیگابایت</td>
+<td>پاسخ‌های کوتاه و سریع</td>
+</tr>
+<tr>
+<td><code>qwen2.5:7b</code></td>
+<td>~۴.۷ گیگابایت</td>
+<td>کیفیت بالاتر، نیاز به ۱۶ گیگ رم</td>
+</tr>
+<tr>
+<td><code>llama3.1:8b</code></td>
+<td>~۴.۹ گیگابایت</td>
+<td>کیفیت بالا، انگلیسی قوی‌تر</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="sec-12">استفادهٔ مستقیم در ترمینال</h3>
+<pre><code class="language-bash">ollama run llama3.2:3b
+# &gt;&gt;&gt; سلام، خودت را معرفی کن
+# خروج: /bye
+</code></pre>
+<p>و تست API بدون رابط:</p>
+<pre><code class="language-bash">curl -s http://127.0.0.1:11434/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;model&quot;:&quot;llama3.2:3b&quot;,&quot;stream&quot;:false,&quot;messages&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;سلام&quot;}]}' \
+  | python3 -m json.tool
+</code></pre>
+<blockquote>
+<p>Ollama به‌طور پیش‌فرض فقط روی <code>127.0.0.1</code> گوش می‌دهد. اگر سرور از راه دور است و می‌خواهی Flask روی همان ماشین از آن استفاده کند، همین کافی است. باز کردن پورت روی اینترنت را در بخش ۷ ببین.</p>
+</blockquote>
+<h2 id="sec-13">۳ · نسخهٔ کامل Flask (رابط وب + ابزار واقعی)</h2>
+<p>این نسخه چت واقعی، ابزار ساخت/خواندن فایل، اجرای دستور داخل <code>workspace/</code>، حافظهٔ SQLite و چند گفتگو دارد.</p>
+<h3 id="sec-14">نصب در محیط مجازی</h3>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+</code></pre>
+<p>هر بار که ترمینال تازه باز می‌کنی، دوباره <code>source .venv/bin/activate</code> لازم است.</p>
+<h3 id="sec-15">تنظیمات</h3>
+<pre><code class="language-bash">cp .env.example .env
+</code></pre>
+<p><code>.env</code> را با یک ویرایشگر ترمینالی باز کن (<code>nano .env</code> یا <code>vim .env</code>):</p>
+<pre><code class="language-env"># آفلاین — به Ollama روی همین دستگاه وصل می‌شود
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:3b
+
+# آنلاین (اختیاری) — هر API سازگار با OpenAI
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=
+ONLINE_MODEL=gpt-4o-mini
+
+# یا Gemini
+GEMINI_API_KEY=
+
+PORT=3000
+</code></pre>
+<p><code>.env</code> در <code>.gitignore</code> است؛ کلید را هیچ‌جای دیگری (کد، <code>docs/</code>، چت، گیت) نگذار.</p>
+<blockquote>
+<p>⚠️ <strong>نکتهٔ مهمی که در آزمایش عملی پیدا شد:</strong> <code>python server.py</code> خودش <code>.env</code> را نمی‌خواند. Flask فقط تذکر می‌دهد که فایل <code>.env</code> هست و <code>python-dotenv</code> نصب نیست؛ تنها Docker با <code>env_file</code> این فایل را به برنامه می‌رساند. برای اجرای مستقیم باید متغیرها را در همان شل export کنی:</p>
+</blockquote>
+<pre><code class="language-bash">set -a; . ./.env; set +a
+</code></pre>
+<blockquote>
+<p>بدون این خط، برنامه با مقدارهای پیش‌فرض بالا می‌آید و مثلاً <code>OLLAMA_MODEL</code> یا <code>ONLINE_MODEL</code> را از <code>.env</code> نمی‌بیند.</p>
+<p>حالت <code>auto</code> خودش انتخاب می‌کند: اگر Ollama در دسترس باشد آفلاین، وگرنه آنلاین. برای اجبار به یکی، ارائه‌دهنده را در <code>/api/settings</code> یا از رابط وب → تنظیمات عوض کن.</p>
+</blockquote>
+<h3 id="sec-16">اجرا</h3>
+<pre><code class="language-bash">set -a; . ./.env; set +a      # .env را به محیط شل export کن
+python server.py
+# * Running on all addresses (0.0.0.0)
+# * Running on http://127.0.0.1:3000
+</code></pre>
+<p>سپس در مرورگر همان دستگاه <code>http://127.0.0.1:3000</code> را باز کن. اگر سرور بی‌نمایش است، از دستگاه خودت تونل بزن:</p>
+<pre><code class="language-bash">ssh -L 3000:127.0.0.1:3000 user@server
+# بعد در مرورگر LOCAL: http://127.0.0.1:3000
+</code></pre>
+<h3 id="sec-17">اجرا در پس‌زمینه (بدون systemd)</h3>
+<pre><code class="language-bash">nohup python server.py &gt; ~/assistant.log 2&gt;&amp;1 &amp;
+echo $! &gt; ~/assistant.pid
+tail -f ~/assistant.log       # دیدن لاگ
+kill &quot;$(cat ~/assistant.pid)&quot; # توقف
+</code></pre>
+<h3 id="sec-18">اجرای دائمی با systemd</h3>
+<pre><code class="language-bash">sudo tee /etc/systemd/system/assistant.service &gt;/dev/null &lt;&lt;'EOF'
+[Unit]
+Description=Digital Assistant (Flask)
+After=network.target ollama.service
+
+[Service]
+Type=simple
+User=USER
+WorkingDirectory=/home/USER/AI
+EnvironmentFile=/home/USER/AI/.env
+Environment=PATH=/home/USER/AI/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/USER/AI/.venv/bin/python server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+</code></pre>
+<p><code>USER</code> را با نام کاربری خودت عوض کن، سپس:</p>
+<pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl enable --now assistant
+systemctl status assistant --no-pager
+journalctl -u assistant -f
+</code></pre>
+<h3 id="sec-19">آزمایش با curl</h3>
+<pre><code class="language-bash"># سلامت
+curl -s http://127.0.0.1:3000/api/health
+# {&quot;ok&quot;:true}
+
+# وضعیت ارائه‌دهنده و مدل فعال
+curl -s http://127.0.0.1:3000/api/status | python3 -m json.tool
+
+# مدل‌های نصب‌شده + فهرست پیشنهادی
+curl -s http://127.0.0.1:3000/api/models | python3 -m json.tool
+
+# چت استریمی (SSE) — -N بافر curl را خاموش می‌کند
+curl -N -X POST http://127.0.0.1:3000/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;message&quot;:&quot;سلام، خودت را در یک جمله معرفی کن&quot;}'
+</code></pre>
+<p>خروجی چت چند خط <code>data: {...}</code> است و با <code>data: {"type": "end", ...}</code> تمام می‌شود.</p>
+<p>خروجی واقعی همین دستورها در یک محیط تازه (Python 3.12، بدون Ollama):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>دستور</th>
+<th>نتیجهٔ دیده‌شده</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/health</code></td>
+<td><code>{"ok":true}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/status</code></td>
+<td><code>200</code> با <code>provider:"auto"</code>، <code>ollama_ready:false</code> و مدل‌های خوانده‌شده از <code>.env</code></td>
+</tr>
+<tr>
+<td><code>GET /api/models</code></td>
+<td><code>200</code> با <code>catalog</code> پر و <code>installed:[]</code> — بدون Ollama هم خطا نمی‌دهد</td>
+</tr>
+<tr>
+<td><code>POST /api/chat</code></td>
+<td>استریم SSE با <code>error</code> روشن («هیچ مدلی در دسترس نیست…») و سپس <code>end</code> — بدون کرش</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="sec-20">مدیریت مدل از ترمینال</h3>
+<pre><code class="language-bash"># نصب مدل (استریم پیشرفت)
+curl -N -X POST http://127.0.0.1:3000/api/models/pull \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;model&quot;:&quot;qwen2.5:3b&quot;}'
+
+# فعال‌کردن مدل نصب‌شده
+curl -s -X POST http://127.0.0.1:3000/api/models/use \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;model&quot;:&quot;qwen2.5:3b&quot;}'
+</code></pre>
+<p>فقط نام‌های فهرست پیشنهادی (<code>providers.MODEL_CATALOG</code>) از این مسیر قابل نصب‌اند.</p>
+<h3 id="sec-21">آزمایش‌های پروژه (اختیاری)</h3>
+<pre><code class="language-bash">pip install -r requirements-dev.txt
+pytest -q
+</code></pre>
+<h2 id="sec-22">۴ · مسیر سرور واسط: Cloudflare Worker</h2>
+<p>برای اینکه دموی استاتیک سایت با مدل واقعی کار کند و کلید هرگز به مرورگر نرسد. در محیط CLI دو حالت دارد: تعاملی (مرورگر همان دستگاه) یا بدون مرورگر با توکن API.</p>
+<h3 id="sec-23">پیش‌نیاز</h3>
+<pre><code class="language-bash">node --version      # 18 یا بالاتر؛ ترجیحاً 20
+npx wrangler --version
+</code></pre>
+<p>اگر Node نیست، با <code>nvm</code> بدون root نصب کن:</p>
+<pre><code class="language-bash">curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc
+nvm install --lts
+</code></pre>
+<h3 id="sec-24">ورود به Cloudflare</h3>
+<p><strong>حالت تعاملی (دستگاه با مرورگر):</strong></p>
+<pre><code class="language-bash">npx wrangler login
+npx wrangler whoami
+</code></pre>
+<p><strong>حالت بدون مرورگر / سرور (پیشنهادی برای CLI):</strong> در داشبورد Cloudflare → My Profile → API Tokens، یک توکن با دسترسی <em>Edit Cloudflare Workers</em> بساز و فقط در همان نشست شل export کن:</p>
+<pre><code class="language-bash">export CLOUDFLARE_API_TOKEN='...'
+export CLOUDFLARE_ACCOUNT_ID='...'      # از صفحهٔ Workers یا خروجی whoami
+npx wrangler whoami
+</code></pre>
+<p>توکن را در فایل، <code>~/.bash_history</code> یا گیت نگذار؛ برای نشست‌های بعد دوباره export کن یا از یک مدیر رمز استفاده کن.</p>
+<h3 id="sec-25">تنظیم دامنهٔ مجاز</h3>
+<p><code>worker/wrangler.toml</code> را باز کن و <code>ALLOWED_ORIGINS</code> را با دامنهٔ سایت خودت هماهنگ کن:</p>
+<pre><code class="language-toml">ALLOWED_ORIGINS = &quot;https://legolasoriginall.github.io,http://localhost:3000,http://127.0.0.1:3000&quot;
+MODEL = &quot;openai/gpt-6-luna&quot;
+MAX_TOKENS = &quot;800&quot;
+</code></pre>
+<h3 id="sec-26">گذاشتن کلید به‌صورت Secret</h3>
+<pre><code class="language-bash">cd worker
+npx wrangler secret put NUMES_API_KEY
+# مقدار را همان‌جا وارد کن؛ در هیچ فایلی ذخیره نمی‌شود
+cd ..
+</code></pre>
+<p>برای اجرای غیرتعاملی، بدون نمایش در تاریخچهٔ شل:</p>
+<pre><code class="language-bash">read -rs NUMES_API_KEY &amp;&amp; printf '%s' &quot;$NUMES_API_KEY&quot; | (cd worker &amp;&amp; npx wrangler secret put NUMES_API_KEY) ; unset NUMES_API_KEY
+</code></pre>
+<h3 id="sec-27">استقرار</h3>
+<pre><code class="language-bash">bash scripts/deploy_worker.sh
+</code></pre>
+<p>اسکریپت ورود را بررسی می‌کند، Secret را در صورت نبودن می‌پرسد، <code>deploy</code> می‌زند، آدرس نهایی را چاپ می‌کند و همان‌جا <code>smoke.mjs</code> را روی نسخهٔ مستقرشده اجرا می‌کند. گزینه‌ها: <code>--dry-run</code>، <code>--skip-smoke</code>، <code>--secret NAME</code>.</p>
+<p>دستی:</p>
+<pre><code class="language-bash">cd worker
+npx wrangler deploy
+cd ..
+</code></pre>
+<h3 id="sec-28">آزمایش</h3>
+<pre><code class="language-bash">WORKER=https://ai-assistant-proxy.&lt;account&gt;.workers.dev
+
+curl -s &quot;$WORKER/health&quot;
+# {&quot;ok&quot;:true,&quot;configured&quot;:true,&quot;model&quot;:&quot;openai/gpt-6-luna&quot;}
+
+curl -s &quot;$WORKER/api/models&quot;
+# {&quot;models&quot;:[...],&quot;default&quot;:&quot;...&quot;}
+
+curl -N &quot;$WORKER/api/chat&quot; \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: https://legolasoriginall.github.io' \
+  -d '{&quot;messages&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;سلام، یک جمله دربارهٔ پروکسی بگو&quot;}]}'
+</code></pre>
+<h3 id="sec-29">تست محلی بدون کلید و بدون حساب</h3>
+<pre><code class="language-bash">cd worker
+npx wrangler dev --port 8787        # ترمینال اول
+node smoke.mjs                       # ترمینال دوم، در همان پوشه
+node test.mjs                        # ۳۳ بررسی آفلاین، بدون شبکه
+</code></pre>
+<h3 id="sec-30">وصل کردن به دموی سایت</h3>
+<p>در سایت → «دموی زنده» → «اتصال مدل»: آدرس Worker را در «آدرس سرور واسط» بگذار، بقیهٔ فیلدها (endpoint/مدل/کلید) خالی. سپس «تست اتصال» بزن؛ سه حالت را نشان می‌دهد: آماده، کلید سمت سرور تنظیم نشده، یا مبدأ رد شده.</p>
+<h2 id="sec-31">۵ · تونل HTTPS برای Ollama (استفاده از دموی Pages)</h2>
+<p>دموی سایت روی HTTPS است و مرورگر اجازهٔ تماس مستقیم با <code>http://127.0.0.1:11434</code> را نمی‌دهد (mixed content + CORS). اسکریپت پروژه هر دو را حل می‌کند.</p>
+<h3 id="sec-32">نصب cloudflared</h3>
+<pre><code class="language-bash"># دبیان/اوبونتو
+curl -fL -o cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
+cloudflared --version
+</code></pre>
+<p>بدون root:</p>
+<pre><code class="language-bash">mkdir -p ~/.local/bin
+curl -fL -o ~/.local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x ~/.local/bin/cloudflared
+</code></pre>
+<p>(روی <code>aarch64</code> فایل <code>cloudflared-linux-arm64</code> را بردار.)</p>
+<h3 id="sec-33">اجرای تونل</h3>
+<pre><code class="language-bash">bash scripts/ollama_tunnel.sh
+# آدرس https://…trycloudflare.com چاپ می‌شود
+</code></pre>
+<p>گزینه‌ها: <code>--port 11434</code>، <code>--origin https://my-site.example</code> (قابل تکرار)، <code>--dry-run</code>، <code>--help</code>. با <code>Ctrl+C</code> هر دو فرآیندی که خودش ساخته بسته می‌شود.</p>
+<p>سپس همان آدرس HTTPS را در سایت → «مدل‌ها» → «آدرس Ollama» بگذار و «جست‌وجوی دوباره» بزن.</p>
+<p>نکته‌ها:</p>
+<ul>
+<li><code>OLLAMA_ORIGINS</code> فقط هنگام شروع <code>ollama serve</code> خوانده می‌شود؛ اگر Ollama از قبل در حال اجراست اول ببندش (<code>sudo systemctl stop ollama</code> یا <code>kill "$(cat ~/ollama.pid)"</code>).</li>
+<li>تونل <code>trycloudflare</code> عمومی و موقت است و تا وقتی اسکریپت باز است کار می‌کند؛ آدرسش را منتشر نکن.</li>
+<li>Ollama هیچ احراز هویتی ندارد؛ هر کسی با آن آدرس می‌تواند مدل‌ها را صدا بزند.</li>
+</ul>
+<h2 id="sec-34">۶ · مسیر Docker (بدون venv)</h2>
+<pre><code class="language-bash">cp .env.example .env      # کلید/مدل را اینجا بگذار
+docker compose up --build -d
+docker compose logs -f
+docker compose down
+</code></pre>
+<p>اگر Ollama روی میزبان اجرا می‌شود، در <code>.env</code> آدرس را به میزبان اشاره بده (<code>OLLAMA_URL=http://host.docker.internal:11434</code>) و روی لینوکس به سرویس <code>extra_hosts</code> نیاز داری؛ ساده‌ترین راه این است که Ollama را هم داخل Compose بیاوری یا Flask را بدون Docker اجرا کنی.</p>
+<h2 id="sec-35">۷ · عیب‌یابی</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>نشانه</th>
+<th>علت</th>
+<th>راه‌حل</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Address already in use</code></td>
+<td>پورت ۳۰۰۰ اشغال است</td>
+<td><code>ss -ltnp \| grep 3000</code> و <code>PORT=3001 python server.py</code></td>
+</tr>
+<tr>
+<td><code>ollama: command not found</code></td>
+<td><code>PATH</code></td>
+<td><code>export PATH="$HOME/.local/ollama/bin:$PATH"</code></td>
+</tr>
+<tr>
+<td><code>connection refused</code> روی <code>11434</code></td>
+<td>سرویس بالا نیست</td>
+<td><code>ollama serve</code> یا <code>systemctl start ollama</code></td>
+</tr>
+<tr>
+<td><code>model not found</code></td>
+<td>مدل دانلود نشده</td>
+<td><code>ollama pull llama3.2:3b</code></td>
+</tr>
+<tr>
+<td>فارسی به‌هم‌ریخته در ترمینال</td>
+<td>لوکال ترمینال</td>
+<td><code>export LANG=fa_IR.UTF-8</code> یا از رابط وب استفاده کن</td>
+</tr>
+<tr>
+<td>Worker: <code>403 origin_not_allowed</code></td>
+<td>دامنه در <code>ALLOWED_ORIGINS</code> نیست</td>
+<td>دامنه را اضافه و دوباره <code>deploy</code> کن</td>
+</tr>
+<tr>
+<td>Worker: <code>500 server_not_configured</code></td>
+<td>Secret خوانده نشده</td>
+<td><code>npx wrangler secret put NUMES_API_KEY</code> و <code>deploy</code> دوباره</td>
+</tr>
+<tr>
+<td>Worker: <code>502 upstream_error</code></td>
+<td>کلید/مدل نامعتبر</td>
+<td>پیام <code>message</code> را ببین؛ کلید را در داشبورد بررسی کن</td>
+</tr>
+<tr>
+<td>مرورگر: <code>mixed content</code></td>
+<td>تماس HTTPS با <code>http://127.0.0.1</code></td>
+<td>از تونل بخش ۵ استفاده کن</td>
+</tr>
+<tr>
+<td>مدل/کلید از <code>.env</code> خوانده نمی‌شود</td>
+<td><code>server.py</code> خودش <code>.env</code> را لود نمی‌کند</td>
+<td><code>set -a; . ./.env; set +a</code> پیش از اجرا، یا <code>EnvironmentFile</code> در یونیت systemd</td>
+</tr>
+<tr>
+<td><code>pip install</code> کند یا خطای شبکه</td>
+<td>آینه یا پروکسی</td>
+<td><code>pip install -i https://pypi.org/simple -r requirements.txt</code></td>
+</tr>
+<tr>
+<td>مدل بسیار کند / OOM</td>
+<td>رم کم</td>
+<td>مدل کوچک‌تر (<code>llama3.2:1b</code>) و <code>free -h</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="sec-36">۸ · امنیت و نگهداری</h2>
+<ul>
+<li>کلیدها فقط در <code>.env</code> (سرور Flask) یا Secret در wrangler؛ هرگز در <code>docs/</code>، کد، گیت یا چت.</li>
+<li>نسخهٔ Flask ابزار اجرای دستور دارد و احراز هویت ندارد: روی اینترنت بازش نکن. برای دسترسی از راه دور از <code>ssh -L</code> استفاده کن.</li>
+<li>پورت <code>11434</code> را روی اینترنت باز نکن؛ برای دمو از تونل موقت استفاده کن.</li>
+<li><code>workspace/</code> را دوره‌ای خالی کن؛ ابزارها فقط داخل همین پوشه کار می‌کنند.</li>
+<li>به‌روزرسانی: <code>git pull</code>، <code>pip install -r requirements.txt</code>، <code>ollama pull &lt;model&gt;</code>، و برای Worker دوباره <code>bash scripts/deploy_worker.sh</code>.</li>
+<li>پشتیبان‌گیری: فایل SQLite و <code>.env</code> را کپی کن؛ بهتر است <code>.env</code> در پشتیبان رمزنگاری‌شده باشد.</li>
+</ul>
+<h2 id="sec-37">۹ · چک‌لیست کوتاه</h2>
+<pre><code class="language-bash"># آفلاین
+ollama --version &amp;&amp; ollama pull llama3.2:3b
+curl -s http://127.0.0.1:11434/api/tags
+
+# Flask
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt &amp;&amp; cp .env.example .env
+python server.py
+curl -s http://127.0.0.1:3000/api/health
+
+# Worker (اختیاری)
+npx wrangler whoami &amp;&amp; bash scripts/deploy_worker.sh
+curl -s https://&lt;worker&gt;/health
+</code></pre>
+<p>وقتی <code>{"ok":true}</code> گرفتی، همه‌چیز آماده است: رابط کامل روی <code>http://127.0.0.1:3000</code>، مدل آفلاین روی <code>11434</code>، و در صورت نیاز سرور واسط روی <code>workers.dev</code>.</p>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong>دستیار دیجیتال</strong>
+        <p class="muted small">پروژهٔ متن‌باز · ساخته‌شده با Flask و SQLite</p>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">صفحهٔ اصلی</a>
+        <a href="setup.html">راه‌اندازی</a>
+        <a href="https://github.com/legolasoriginall/AI/issues" target="_blank" rel="noopener">گزارش مشکل</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="linux-cli.js"></script>
+</body>
+</html>

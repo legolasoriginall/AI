@@ -24,6 +24,7 @@
       <a href="index.html#demo">دمو</a>
       <a href="index.html#models">مدل‌ها</a>
       <a href="setup.html" aria-current="page">راه‌اندازی</a>
+      <a href="linux-cli.html">لینوکس</a>
       <a class="gh" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">مخزن گیت‌هاب ↗</a>
     </nav>
   </header>
@@ -38,7 +39,20 @@
       </p>
     </section>
 
-    <section class="section">
+    <section class="section linux-strip">
+      <div class="linux-banner">
+        <div>
+          <strong>فقط ترمینال؟ راهنمای کامل لینوکس</strong>
+          <p class="muted small">
+            از نصب Ollama و ساخت venv تا systemd، سرور واسط، تونل HTTPS و عیب‌یابی — همهٔ دستورها برای خط فرمان لینوکس،
+            با دکمهٔ کپی. بخش Flask این راهنما در یک محیط تازه اجرا و تأیید شده است.
+          </p>
+        </div>
+        <a class="btn primary" href="linux-cli.html">راهنمای لینوکس (CLI) ←</a>
+      </div>
+    </section>
+
+    <section class="section linux-strip">
       <div class="tabs" role="tablist" aria-label="روش‌های راه‌اندازی">
         <button class="tab" role="tab" id="tab-ollama" aria-controls="panel-ollama" aria-selected="true" tabindex="0" type="button">
           <span class="tab-ico">💻</span>
@@ -169,8 +183,13 @@ pip install -r requirements.txt</code></pre>
         <h2>۳ · اجرا</h2>
         <div class="cmd">
           <div class="cmd-head"><span>سپس http://127.0.0.1:3000</span><button class="copy" type="button" data-copy="#cmd-flask-run">کپی</button></div>
-          <pre><code id="cmd-flask-run">python server.py</code></pre>
+          <pre><code id="cmd-flask-run">set -a; . ./.env; set +a      # server.py خودش .env را نمی‌خواند
+python server.py</code></pre>
         </div>
+        <p class="muted small">
+          بدون خط اول، متغیرهای <code>.env</code> خوانده نمی‌شوند و مدل خالی می‌ماند. جزئیات بیشتر در
+          <a href="linux-cli.html">راهنمای لینوکس</a>.
+        </p>
 
         <h2>یا با Docker</h2>
         <div class="cmd">
@@ -185,6 +204,7 @@ pip install -r requirements.txt</code></pre>
       <div class="setup-next">
         <a class="btn primary" href="index.html#demo">رفتن به دمو</a>
         <a class="btn" href="index.html#models">مدیریت مدل‌ها</a>
+        <a class="btn" href="linux-cli.html">راهنمای لینوکس (CLI)</a>
         <a class="btn" href="https://github.com/legolasoriginall/AI" target="_blank" rel="noopener">کد منبع ↗</a>
         <span class="muted small" id="copyStatus" role="status" aria-live="polite"></span>
       </div>
