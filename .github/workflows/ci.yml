@@ -27,3 +27,14 @@ jobs:
         run: python -m py_compile $(git ls-files '*.py')
       - name: Pytest
         run: python -m pytest
+
+  cli-smoke:
+    name: CLI smoke (fresh venv)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the documented CLI commands end to end
+        run: bash scripts/smoke_cli.sh
