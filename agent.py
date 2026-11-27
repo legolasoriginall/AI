@@ -118,3 +118,67 @@ def run_turn(
         "type": "delta",
         "text": "به سقف تعداد مراحل ابزار رسیدم. اگر لازم است ادامه بدهم، دوباره بگو.",
     }
+
+
+def stream_turn(
+    history: List[Dict[str, str]],
+    settings: Dict[str, Any],
+    max_steps: Optional[int] = None,
+) -> Generator[Dict[str, Any], None, None]:
+    """مثل run_turn اما پاسخ را تکه‌تکه می‌دهد (برای CLI).
+
+    رویدادها: token / tool_call / tool_result / final / error.
+    تا وقتی متن می‌تواند شروع یک کنش JSON باشد (با «{» یا «```»)، تکه‌ها نگه داشته
+    می‌شوند تا JSON خام روی ترمینال نریزد؛ پاسخ‌های معمولی همان لحظه چاپ می‌شوند.
+    """
+    if not history:
+        yield {"type": "error", "message": "پیامی برای پردازش وجود ندارد."}
+        return
+
+    user_text = next((m["content"] for m in reversed(history) if m["role"] == "user"), "")
+    system = build_system_prompt(settings, user_text)
+    messages = [dict(m) for m in history if m.get("role") in ("user", "assistant")]
+    brain = Brain(settings)
+    steps = int(max_steps or settings.get("max_steps") or 8)
+
+    for step in range(steps):
+        buffer = ""
+        streaming = False
+        try:
+            for chunk in brain.stream_chat(messages, system=system):
+                buffer += chunk
+                if streaming:
+                    yield {"type": "token", "text": chunk}
+                elif buffer.lstrip()[:1] not in ("{", "`"):
+                    streaming = True
+                    yield {"type": "token", "text": buffer}
+        except ProviderError as exc:
+            yield {"type": "error", "message": str(exc)}
+            return
+        except Exception as exc:  # noqa: BLE001
+            yield {"type": "error", "message": f"خطا در فراخوانی مدل: {exc}"}
+            return
+
+        reply = buffer.strip()
+        action = extract_action(reply)
+        if action is None:
+            if not streaming:
+                yield {"type": "token", "text": reply or "(پاسخ خالی بود)"}
+            yield {"type": "final"}
+            return
+
+        name, args = action
+        yield {"type": "tool_call", "tool": name, "args": args, "step": step + 1}
+        result = tools.run_tool(name, args)
+        yield {"type": "tool_result", "tool": name, "result": result, "step": step + 1}
+
+        messages.append({"role": "assistant", "content": reply})
+        messages.append(
+            {
+                "role": "user",
+                "content": f"نتیجهٔ اجرای ابزار «{name}»:\n{result}\n\nادامه بده یا پاسخ نهایی را بنویس.",
+            }
+        )
+
+    yield {"type": "token", "text": "به سقف تعداد مراحل ابزار رسیدم. اگر لازم است ادامه بدهم، دوباره بگو."}
+    yield {"type": "final"}
