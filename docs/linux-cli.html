@@ -1,19 +1,49 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>بخش۱</title></head>
-<body>
-<main>
-<header><a href="https://github.com/legolasoriginall/AI#readme">✦ دستیار دیجیتال</a><a href="https://github.com/legolasoriginall/AI">مخزن ↗</a></header>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>راه‌اندازی روی لینوکس — دستیار دیجیتال</title>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--line:#2a2f3a;--text:#e8eaf0;--muted:#9aa3b2;--accent:#7cc4ff}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.8 "Vazirmatn",Tahoma,sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 18px 56px}
+header{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:22px}
+a{color:var(--accent);text-decoration:none}
+h1{font-size:1.6rem;margin:0 0 6px}
+h2{font-size:1.1rem;margin:24px 0 8px;padding-top:10px;border-top:1px solid var(--line)}
+.lead{color:var(--muted);margin:0}
+code,pre{font-family:ui-monospace,Menlo,monospace;direction:ltr;text-align:left}
+code{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;font-size:.85rem}
+pre code{background:none;border:0}
+footer{margin-top:30px;border-top:1px solid var(--line);padding-top:12px;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body><main>
+<header><a href="https://github.com/legolasoriginall/AI#readme">✦ دستیار دیجیتال</a><a href="https://github.com/legolasoriginall/AI">مخزن گیت‌هاب ↗</a></header>
 <h1>راه‌اندازی روی لینوکس — فقط با ترمینال</h1>
-<p class="lead">نسخهٔ کوتاه دستورهای README: نصب، قرارداد <code>.env</code>، اجرا، مدل و عیب‌یابی.</p>
-<h2>۱ · نصب</h2>
+<p class="lead">نسخهٔ کوتاه و قابل‌اشتراک دستورهای README؛ بدون رابط وب و بدون Flask.</p>
+<h2>نصب</h2>
 <pre><code>git clone https://github.com/legolasoriginall/AI.git
 cd AI
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 python3 cli.py --list-models</code></pre>
-<p>پیش‌نیاز: لینوکس، <code>bash</code> و پایتون ۳.۱۰+.</p>
-</main>
-</body>
+<h2>قرارداد .env</h2>
+<p><code>cli.py</code> خودش <code>.env</code> کنار خودش را می‌خواند؛ نه <code>export</code> لازم است نه <code>python-dotenv</code>. متغیری که در شل <code>export</code> شده باشد بر فایل اولویت دارد. بررسی: <code>python3 scripts/doctor.py</code>.</p>
+<h2>اجرا</h2>
+<pre><code>python3 cli.py            # گفتگوی تعاملی با استریم
+python3 cli.py -m "سلام"   # یک پیام و خروج
+python3 cli.py --json     # NDJSON برای اسکریپت‌ها</code></pre>
+<p>داخل چت: <code>/new</code> <code>/models</code> <code>/use NAME</code> <code>/model</code> <code>/remember K=V</code> <code>/tools</code> <code>/status</code> <code>/system FILE</code> <code>/exit</code></p>
+<h2>مدل محلی</h2>
+<pre><code>sudo systemctl enable --now ollama
+ollama pull qwen2.5:3b
+# .env
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:3b</code></pre>
+<p>حالت <code>auto</code> اول مدل محلی را امتحان می‌کند و تا وقتی پاسخ بدهد سراغ سرویس‌های آنلاین نمی‌رود.</p>
+<footer>نصب Ollama، حالت آنلاین، ابزارها و عیب‌یابی کامل در <a href="https://github.com/legolasoriginall/AI#readme">README مخزن</a>.</footer>
+</main></body>
 </html>
