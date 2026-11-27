@@ -48,9 +48,10 @@ python3 cli.py                 # گفتگوی تعاملی با استریم
 python3 cli.py -m "سلام"        # یک پیام و خروج
 python3 cli.py --list-models   # مدل‌های نصب‌شده و پیشنهادی
 python3 cli.py --provider ollama --ollama-model qwen2.5:3b
+python3 cli.py --system-file prompt.md   # دستور سیستمی از فایل
 ```
 
-گزینه‌ها: `--session ID` برای ادامهٔ نشست، `--new` برای نشست تازه، `--model` برای مدل آنلاین.
+گزینه‌ها: `--session ID` برای ادامهٔ نشست، `--new` برای نشست تازه، `--model` برای مدل آنلاین، `--system-file PATH` برای جایگزینی دستور سیستمی از یک فایل متنی UTF-8.
 
 | دستور داخل چت | کار |
 | --- | --- |
@@ -59,6 +60,7 @@ python3 cli.py --provider ollama --ollama-model qwen2.5:3b
 | `/models` | مدل‌های نصب‌شده و پیشنهادی |
 | `/use qwen2.5:3b` | فعال‌کردن مدل نصب‌شده |
 | `/status` | ارائه‌دهنده و مدل فعال |
+| `/system FILE` | تنظیم دستور سیستمی از فایل (بدون آرگومان: نمایش فعلی) |
 | `/exit` | خروج |
 
 `cli.py` خودش `.env` را می‌خواند (بدون `python-dotenv`)، ابزارها را در همان لحظه اجرا می‌کند و خروجی آن‌ها را زیر پاسخ نشان می‌دهد.

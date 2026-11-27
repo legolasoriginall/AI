@@ -6,6 +6,7 @@ import json
 import agent
 import cli
 import providers
+import store
 
 
 def test_cli_oneshot_streams_answer(capsys, monkeypatch):
@@ -65,6 +66,40 @@ def test_stream_turn_hides_tool_json(monkeypatch):
     assert '"tool"' not in tokens
     assert any(e["type"] == "tool_call" for e in events)
     assert tokens.strip().endswith("تمام شد.")
+
+
+def test_system_file_replaces_prompt(tmp_path, monkeypatch):
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("تو یک دستیار تستی هستی.", encoding="utf-8")
+    seen = {}
+
+    def fake_turn(history, settings, max_steps=None):
+        seen["prompt"] = settings.get("system_prompt")
+        yield {"type": "final"}
+
+    monkeypatch.setattr(agent, "stream_turn", fake_turn)
+    assert cli.main(["-m", "سلام", "--system-file", str(prompt_file)]) == 0
+    assert seen["prompt"] == "تو یک دستیار تستی هستی."
+    assert store.load_settings()["system_prompt"] == "تو یک دستیار تستی هستی."
+
+
+def test_system_file_missing_fails_without_changing_prompt(tmp_path, capsys):
+    before = store.load_settings()["system_prompt"]
+    assert cli.main(["-m", "سلام", "--system-file", str(tmp_path / "nope.md")]) == 1
+    assert "پیدا نشد" in capsys.readouterr().out
+    assert store.load_settings()["system_prompt"] == before
+
+
+def test_system_command_reads_prompt_file(tmp_path, capsys):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("فقط فارسی جواب بده.", encoding="utf-8")
+    keep_going, session_id = cli._handle_command(f"/system {prompt_file}", "sid")
+    assert keep_going is True and session_id == "sid"
+    assert store.load_settings()["system_prompt"] == "فقط فارسی جواب بده."
+    assert "تنظیم شد" in capsys.readouterr().out
+
+    cli._handle_command("/system", "sid")
+    assert "فقط فارسی جواب بده." in capsys.readouterr().out
 
 
 class FakeStreamResponse:

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""چت خط فرمان دستیار دیجیتال — بدون Flask و مرورگر، مستقیم در ترمینال لینوکس.
+"""چت خط فرمان دستیار دیجیتال — مستقیم در ترمینال لینوکس.
 
     python3 cli.py                      # گفتگوی تعاملی با استریم
     python3 cli.py -m "سلام"             # یک پیام و خروج
     python3 cli.py --list-models        # مدل‌های نصب‌شده و پیشنهادی
+    python3 cli.py --system-file p.md   # دستور سیستمی از فایل
 
 ابزارها همان tools.py هستند: خواندن/نوشتن فایل و اجرای دستور bash در پوشهٔ
 workspace. کلیدها و مدل هم از .env (در همین پوشه) خوانده می‌شوند.
@@ -60,12 +61,24 @@ HELP = """دستورها:
   /models          مدل‌های نصب‌شده و پیشنهادی
   /use NAME        فعال‌کردن یک مدل نصب‌شده (مثل /use qwen2.5:3b)
   /status          ارائه‌دهنده و مدل فعال
+  /system FILE     تنظیم دستور سیستمی از فایل (بدون آرگومان: نمایش فعلی)
   /exit یا /quit   خروج
 هر متن دیگری به مدل می‌رود؛ ابزارها خودکار اجرا می‌شوند."""
 
 
 def _paint(text: str, color: str) -> str:
     return text if not sys.stdout.isatty() else f"{color}{text}{RESET}"
+
+
+def _read_prompt_file(path: str) -> str:
+    """دستور سیستمی را از یک فایل متنی UTF-8 می‌خواند."""
+    target = Path(path).expanduser()
+    if not target.is_file():
+        raise FileNotFoundError(f"فایل «{path}» پیدا نشد.")
+    text = target.read_text(encoding="utf-8").strip()
+    if not text:
+        raise ValueError(f"فایل «{path}» خالی است.")
+    return text
 
 
 def _show_models() -> None:
@@ -152,6 +165,20 @@ def _handle_command(line: str, session_id: str) -> tuple[bool, str]:
                 print(f"مدل فعال: {arg}")
     elif command == "/status":
         _show_status(store.load_settings())
+    elif command == "/system":
+        if not arg:
+            current = (store.load_settings().get("system_prompt") or "").strip()
+            preview = "\n".join(current.splitlines()[:6])
+            print(_paint("دستور سیستمی فعلی:", DIM))
+            print(preview or "(خالی — پیش‌فرض استفاده می‌شود)")
+        else:
+            try:
+                prompt = _read_prompt_file(arg)
+            except (OSError, ValueError) as exc:
+                print(_paint(f"خطا: {exc}", RED))
+            else:
+                store.save_settings({"system_prompt": prompt})
+                print(f"دستور سیستمی از «{arg}» تنظیم شد ({len(prompt)} کاراکتر).")
     else:
         print(f"دستور ناشناخته: {command} — /help را بزنید.")
     return True, session_id
@@ -166,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ollama-model", help="مدل محلی نصب‌شده")
     parser.add_argument("--session", help="ادامهٔ یک نشست با شناسه")
     parser.add_argument("--new", action="store_true", help="نشست تازه بساز")
+    parser.add_argument("--system-file", help="فایل دستور سیستمی (UTF-8) برای جایگزینی پیش‌فرض")
     args = parser.parse_args(argv)
 
     if args.list_models:
@@ -181,6 +209,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         if value
     }
+    if args.system_file:
+        try:
+            overrides["system_prompt"] = _read_prompt_file(args.system_file)
+        except (OSError, ValueError) as exc:
+            print(_paint(f"خطا: {exc}", RED))
+            return 1
+
     if overrides:
         store.save_settings(overrides)
 
