@@ -31,7 +31,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env          # اختیاری: کلید یا آدرس مدل
+cp .env.example .env          # اختیاری: کلید یا آدرس مدل؛ cli.py خودش همین را می‌خواند
 ```
 
 اگر `python3-venv` نصب نیست:
@@ -50,6 +50,8 @@ python3 cli.py --list-models   # مدل‌های نصب‌شده و پیشنها
 python3 cli.py --provider ollama --ollama-model qwen2.5:3b
 python3 cli.py --system-file prompt.md   # دستور سیستمی از فایل
 ```
+
+برای اجرا نه `export` لازم است نه `source`؛ `cli.py` به‌تنهایی `.env` را می‌خواند (بند «قرارداد `.env`» پایین‌تر).
 
 گزینه‌ها: `--session ID` برای ادامهٔ نشست، `--new` برای نشست تازه، `--model` برای مدل آنلاین، `--system-file PATH` برای جایگزینی دستور سیستمی از یک فایل متنی UTF-8، `--json` برای خروجی ماشین‌خوان.
 
