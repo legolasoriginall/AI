@@ -103,53 +103,24 @@ docker compose up --build -d
 | `POST /api/models/pull` | نصب مدل با `ollama pull` و استریم پیشرفت (SSE) |
 | `POST /api/models/use` | فعال‌کردن یک مدل نصب‌شده (فقط نام‌های مجاز) |
 
-معادل ترمینالی همین‌ها:
+## انتخاب خودکار بهترین مدل رایگان
 
-```bash
-curl -s http://127.0.0.1:3000/api/models
-curl -N -X POST http://127.0.0.1:3000/api/models/pull -H "Content-Type: application/json" -d '{"model":"qwen2.5:3b"}'
-```
+حالت `auto` بدون تنظیم دستی، اول رایگان‌ترین گزینه‌ها را امتحان می‌کند:
 
-### دموی استاتیک (GitHub Pages)
+1. **Ollama محلی** — بهترین مدل نصب‌شده به‌صورت خودکار انتخاب می‌شود: بزرگ‌ترین مدلی که با رم دستگاه (۶۰٪ آن) جا شود، با اولویت `qwen` و `llama`. اگر مدل ذخیره‌شده حذف شده باشد، به بهترین مدل موجود برمی‌گردد. هیچ کلیدی لازم نیست.
+2. **Gemini** — اگر `GEMINI_API_KEY` در `.env` باشد.
+3. **Groq** — اگر `GROQ_API_KEY` باشد (سهمیهٔ رایگان، مدل `llama-3.3-70b-versatile`).
+4. **OpenRouter free** — اگر `OPENROUTER_API_KEY` باشد (مدل `meta-llama/llama-3.3-70b-instruct:free`).
+5. در آخر `OPENAI_*` پولی و fallback عمومی (که به‌صورت پیش‌فرض خاموش است).
 
-بخش «مدل‌ها» در سایت، فهرست مدل‌های **سرور واسط** (`GET /api/models` روی Worker) و مدل‌های **endpoint آنلاین** را پیدا می‌کند و می‌تواند همان‌جا اجرایشان کند. برای Ollama روی دستگاه خودتان، مرورگر اجازهٔ تماس صفحهٔ HTTPS با `http://127.0.0.1` را نمی‌دهد؛ در این حالت سایت دستور آمادهٔ `ollama pull …` را می‌دهد. اگر Ollama را پشت یک آدرس HTTPS با CORS بگذارید (اسکریپت آمادهٔ `scripts/ollama_tunnel.sh`، پایین‌تر) و آدرسش را در فیلد «آدرس Ollama» بگذارید، دانلود و نصب و اجرا از داخل همان صفحه هم کار می‌کند.
+| سرویس | متغیر `.env` | مدل پیش‌فرض |
+| --- | --- | --- |
+| Ollama | — | خودکار از مدل‌های نصب‌شده |
+| Gemini | `GEMINI_API_KEY` | `gemini-2.0-flash` |
+| Groq | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
+| OpenRouter | `OPENROUTER_API_KEY` | `meta-llama/llama-3.3-70b-instruct:free` |
 
-#### Ollama با آدرس HTTPS (اسکریپت تونل)
-
-برای اینکه مدیر مدل روی سایت Pages (که HTTPS است) بتواند با Ollama روی دستگاه شما حرف بزند، هم CORS درست لازم است و هم آدرس HTTPS؛ وگرنه مرورگر درخواست را با خطای mixed content می‌بندد. اسکریپت کمکی هر دو را انجام می‌دهد:
-
-```bash
-bash scripts/ollama_tunnel.sh
-```
-
-این اسکریپت:
-
-- `ollama serve` را با `OLLAMA_ORIGINS` درست بالا می‌آورد (دامنهٔ Pages + `localhost:3000` و `127.0.0.1:3000` + هر `--origin` اضافی)؛
-- با `cloudflared tunnel` یک آدرس `https://…trycloudflare.com` می‌سازد و چاپ می‌کند؛
-- با `Ctrl+C` هر دو فرآیند را می‌بندد — فقط فرآیندهایی که خودش ساخته، نه هیچ پروسهٔ دیگری.
-
-بعد از اجرا، همان آدرس HTTPS را در بخش «مدل‌ها» → «آدرس Ollama» بگذارید و «جست‌وجوی دوباره» را بزنید؛ نصب و فعال‌سازی مدل از همان صفحه انجام می‌شود.
-
-| گزینه | کار |
-| --- | --- |
-| `--port 11434` | پورت Ollama (یا متغیر `PORT`) |
-| `--origin https://my-site.example` | دامنهٔ اضافی برای `OLLAMA_ORIGINS` (قابل تکرار) |
-| `--dry-run` | فقط دستورها و مقدار `OLLAMA_ORIGINS` را نشان بده، چیزی اجرا نکن |
-| `--help` | راهنما |
-
-پیش‌نیاز: `ollama` و `cloudflared` روی `PATH` باشند ([نصب cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)). روی ویندوز، همین دو خط در PowerShell معادل اسکریپت است:
-
-```powershell
-$env:OLLAMA_ORIGINS="https://legolasoriginall.github.io"; ollama serve
-# در پنجرهٔ دیگر:
-cloudflared tunnel --url http://127.0.0.1:11434
-```
-
-نکته‌ها:
-
-- تونل `trycloudflare` عمومی و موقت است و تا وقتی اسکریپت باز است کار می‌کند؛ آدرسش را جایی منتشر نکنید.
-- `OLLAMA_ORIGINS` فقط هنگام شروع `ollama serve` خوانده می‌شود. اگر Ollama از قبل در حال اجرا باشد، اسکریپت تذکر می‌دهد؛ اول آن را ببندید و دوباره اجرا کنید.
-- این تونل فقط برای استفادهٔ شخصی روی دستگاه خودتان است؛ Ollama هیچ احراز هویتی ندارد و هر کسی که آدرس را داشته باشد می‌تواند مدل‌ها را ببیند و صدا بزند.
+هر سرویسی که کلیدش باشد خودکار وارد زنجیره می‌شود و اگر خطا بدهد، نفر بعدی امتحان می‌شود. برای دیدن زنجیرهٔ فعال، فیلدهای `best_local_model` و `free_providers` را در پاسخ `GET /api/status` ببینید.
 
 ### فهرست پیشنهادی
 
@@ -162,7 +133,7 @@ cloudflared tunnel --url http://127.0.0.1:11434
 | فایل | نقش |
 | --- | --- |
 | `server.py` | Flask: صفحهٔ وب، استریم چت (SSE)، نشست‌ها، تنظیمات و فضای کاری |
-| `providers.py` | روتر مدل‌ها: Ollama، Gemini، OpenAI-compatible و fallback اختیاری |
+| `providers.py` | روتر مدل‌ها: Ollama، Gemini، Groq/OpenRouter free، OpenAI-compatible و fallback اختیاری |
 | `agent.py` | حلقهٔ عامل: پارس کنش JSON، اجرای ابزار، پاسخ نهایی |
 | `tools.py` | ابزارهای فایل/شل/حافظه با محدودسازی و مسدودسازی دستورهای خطرناک |
 | `store.py` | SQLite برای نشست‌ها، پیام‌ها و حقایق + تنظیمات |
@@ -179,6 +150,10 @@ cloudflared tunnel --url http://127.0.0.1:11434
 ```
 
 سرور ابزار را اجرا می‌کند، نتیجه را به مدل برمی‌گرداند و این چرخه تا رسیدن به پاسخ نهایی (یا سقف `max_steps`) ادامه دارد.
+
+## پشتیبانی لینوکس
+
+این پروژه فقط برای لینوکس و خط فرمان (`bash`) مستند و آزمایش شده است. برای نصب، اجرا، systemd، تونل HTTPS و عیب‌یابی، [راهنمای خط فرمان لینوکس](docs/linux-cli.html) را ببینید.
 
 ## محدودیت‌ها
 
