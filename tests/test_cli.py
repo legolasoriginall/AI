@@ -102,6 +102,77 @@ def test_system_command_reads_prompt_file(tmp_path, capsys):
     assert "فقط فارسی جواب بده." in capsys.readouterr().out
 
 
+def test_json_mode_emits_ndjson(monkeypatch, capsys):
+    def fake_turn(history, settings, max_steps=None):
+        yield {"type": "token", "text": "سلام"}
+        yield {"type": "tool_call", "tool": "list_files", "args": {"path": "."}}
+        yield {"type": "tool_result", "tool": "list_files", "result": "ok"}
+        yield {"type": "final"}
+
+    monkeypatch.setattr(agent, "stream_turn", fake_turn)
+    assert cli.main(["-m", "سلام", "--json"]) == 0
+    out = capsys.readouterr().out
+    events = [json.loads(line) for line in out.splitlines() if line.strip()]
+    assert [event["type"] for event in events] == ["token", "tool_call", "tool_result", "final"]
+    assert "\x1b[" not in out
+
+
+def test_json_mode_reads_stdin_lines(tmp_path, monkeypatch, capsys):
+    def fake_turn(history, settings, max_steps=None):
+        yield {"type": "token", "text": history[-1]["content"]}
+        yield {"type": "final"}
+
+    monkeypatch.setattr(agent, "stream_turn", fake_turn)
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("یک\nدو\n"))
+    assert cli.main(["--json"]) == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line]
+    assert [event.get("text") for event in events if event["type"] == "token"] == ["یک", "دو"]
+
+
+def test_json_mode_routes_slash_commands(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("/model\n"))
+    assert cli.main(["--json"]) == 0
+    payloads = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line]
+    assert payloads == [{"type": "model", "provider": "auto", "model": None}]
+
+
+def test_tools_command_lists_tool_specs(capsys):
+    keep_going, _ = cli._handle_command("/tools", "sid")
+    assert keep_going is True
+    out = capsys.readouterr().out
+    assert "read_file" in out and "run_command" in out
+    assert "خواندن کامل فایل" in out
+
+
+def test_remember_command_stores_and_lists(capsys):
+    cli._handle_command("/remember شهر=تهران", "sid")
+    assert "ثبت شد" in capsys.readouterr().out
+    assert store.search_facts("شهر")[0]["value"] == "تهران"
+
+    cli._handle_command("/remember", "sid")
+    assert "تهران" in capsys.readouterr().out
+
+
+def test_model_command_switches_provider_and_model(capsys, ollama):
+    cli._handle_command("/model groq", "sid")
+    assert store.load_settings()["provider"] == "groq"
+
+    cli._handle_command("/model llama3.2:3b", "sid")
+    settings = store.load_settings()
+    assert settings["provider"] == "ollama"
+    assert settings["ollama_model"] == "llama3.2:3b"
+
+    cli._handle_command("/model", "sid")
+    assert "llama3.2:3b" in capsys.readouterr().out
+
+
+def test_model_command_json_output(capsys):
+    cli._handle_command("/model", "sid", True)
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["type"] == "model"
+    assert payload["provider"] == "auto"
+
+
 class FakeStreamResponse:
     def __init__(self, lines):
         self.lines = lines

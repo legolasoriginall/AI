@@ -41,7 +41,9 @@ load_env()
 
 import agent  # noqa: E402
 import store  # noqa: E402
+import tools  # noqa: E402
 from providers import (  # noqa: E402
+    FREE_API_PROFILES,
     MODEL_CATALOG,
     Brain,
     ProviderError,
@@ -55,11 +57,23 @@ RED = "\033[31m"
 CYAN = "\033[36m"
 RESET = "\033[0m"
 
+# توضیح کوتاه ابزارهایی که داک‌استرینگ ندارند؛ فقط برای نمایش /tools.
+TOOL_HINTS = {
+    "list_files": "فهرست فایل‌های workspace",
+    "read_file": "خواندن کامل فایل",
+    "write_file": "ساخت یا بازنویسی فایل",
+    "remember": "ثبت یک حقیقت در حافظه",
+    "recall": "جستجو در حافظه",
+}
+
 HELP = """دستورها:
   /help            همین راهنما
   /new             گفتگوی تازه
   /models          مدل‌های نصب‌شده و پیشنهادی
+  /model [NAME]    نشان‌دادن یا عوض‌کردن مدل/ارائه‌دهنده
   /use NAME        فعال‌کردن یک مدل نصب‌شده (مثل /use qwen2.5:3b)
+  /remember K=V    ثبت یک حقیقت در حافظه (بدون آرگومان: فهرست)
+  /tools           ابزارهای در دسترس عامل
   /status          ارائه‌دهنده و مدل فعال
   /system FILE     تنظیم دستور سیستمی از فایل (بدون آرگومان: نمایش فعلی)
   /exit یا /quit   خروج
@@ -68,6 +82,17 @@ HELP = """دستورها:
 
 def _paint(text: str, color: str) -> str:
     return text if not sys.stdout.isatty() else f"{color}{text}{RESET}"
+
+
+def _print_json(payload: dict) -> None:
+    """یک رخداد NDJSON روی خروجی استاندارد می‌نویسد."""
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def _summary(func) -> str:
+    doc = (func.__doc__ or "").strip().splitlines()
+    return doc[0].strip() if doc else ""
 
 
 def _read_prompt_file(path: str) -> str:
@@ -94,15 +119,28 @@ def _show_models() -> None:
     print("پیشنهاد: " + ", ".join(m["id"] for m in MODEL_CATALOG))
 
 
-def _show_status(settings: dict) -> None:
+def _show_status(settings: dict, json_mode: bool = False) -> None:
     info = Brain(settings).describe()
+    if json_mode:
+        _print_json(
+            {
+                "type": "status",
+                "provider": info["provider"],
+                "best_local_model": info.get("best_local_model", ""),
+                "active_model": settings.get("ollama_model") or info.get("best_local_model") or "",
+                "free_providers": info["free_providers"],
+                "gemini_ready": info["gemini_ready"],
+                "openai_ready": info["openai_ready"],
+            }
+        )
+        return
     print(f"ارائه‌دهنده: {info['provider']}")
     print(f"مدل محلی فعال: {settings.get('ollama_model') or info.get('best_local_model') or '—'}")
     print(f"سرویس‌های رایگان آماده: {', '.join(info['free_providers']) or '—'}")
     print(f"Gemini: {'آماده' if info['gemini_ready'] else '—'} | OpenAI: {'آماده' if info['openai_ready'] else '—'}")
 
 
-def chat_once(text: str, session_id: str) -> None:
+def chat_once(text: str, session_id: str, json_mode: bool = False) -> None:
     """یک پیام را با استریم به مدل می‌دهد و ابزارها را اجرا می‌کند."""
     store.add_message(session_id, "user", text)
     history = store.get_history(session_id)
@@ -111,6 +149,11 @@ def chat_once(text: str, session_id: str) -> None:
     answer: list[str] = []
     for event in agent.stream_turn(history, settings):
         kind = event.get("type")
+        if json_mode:
+            _print_json(event)
+            if kind == "token":
+                answer.append(event.get("text", ""))
+            continue
         if kind == "token":
             chunk = event.get("text", "")
             answer.append(chunk)
@@ -129,14 +172,16 @@ def chat_once(text: str, session_id: str) -> None:
             print(_paint(head or "(بدون خروجی)", DIM))
         elif kind == "error":
             print(_paint(f"\nخطا: {event.get('message')}", RED))
-    print()
 
     reply = "".join(answer).strip()
     if reply:
         store.add_message(session_id, "assistant", reply)
+    if json_mode:
+        return
+    print()
 
 
-def _handle_command(line: str, session_id: str) -> tuple[bool, str]:
+def _handle_command(line: str, session_id: str, json_mode: bool = False) -> tuple[bool, str]:
     """دستورهای اسلش را اجرا می‌کند؛ (ادامه بده؟, شناسهٔ نشست)."""
     parts = line.split(maxsplit=1)
     command = parts[0].lower()
@@ -151,6 +196,88 @@ def _handle_command(line: str, session_id: str) -> tuple[bool, str]:
         print(_paint(f"گفتگوی تازه: {session_id}", DIM))
     elif command == "/models":
         _show_models()
+    elif command == "/model":
+        settings = store.load_settings()
+        known_providers = {"auto", "ollama", "gemini", "openai", "pollinations"} | {
+            profile["id"] for profile in FREE_API_PROFILES
+        }
+        if not arg:
+            active = settings.get("ollama_model") or settings.get("model") or ""
+            if json_mode:
+                _print_json(
+                    {
+                        "type": "model",
+                        "provider": settings.get("provider", "auto"),
+                        "model": active or None,
+                    }
+                )
+            else:
+                print(f"ارائه‌دهنده: {settings.get('provider', 'auto')} | مدل: {active or '(خودکار)'}")
+        elif arg in known_providers:
+            store.save_settings({"provider": arg})
+            if json_mode:
+                _print_json({"type": "model", "provider": arg})
+            else:
+                print(f"ارائه‌دهنده: {arg}")
+        elif not valid_model_name(arg):
+            if json_mode:
+                _print_json({"type": "error", "message": f"نام مدل درست نیست: {arg}"})
+            else:
+                print("نام مدل درست نیست. مثال: /model qwen2.5:3b")
+        else:
+            base = (settings.get("ollama_url") or "http://localhost:11434").rstrip("/")
+            installed = [m["name"] for m in ollama_details(base)]
+            if installed and arg not in installed:
+                message = f"«{arg}» نصب نیست. نصب‌شده‌ها: {', '.join(installed)}"
+                if json_mode:
+                    _print_json({"type": "error", "message": message})
+                else:
+                    print(message)
+            else:
+                store.save_settings({"provider": "ollama", "ollama_model": arg})
+                if json_mode:
+                    _print_json({"type": "model", "provider": "ollama", "model": arg})
+                else:
+                    print(f"مدل فعال: {arg}")
+    elif command == "/remember":
+        if not arg:
+            facts = store.search_facts("", limit=10)
+            if json_mode:
+                _print_json({"type": "facts", "facts": facts})
+            elif facts:
+                for fact in facts:
+                    print(f"- {fact['key']}: {fact['value']}")
+            else:
+                print("حافظه خالی است.")
+        else:
+            if "=" in arg:
+                key, value = arg.split("=", 1)
+            else:
+                bits = arg.split(maxsplit=1)
+                key, value = bits[0], (bits[1] if len(bits) > 1 else "")
+            key, value = key.strip(), value.strip()
+            if not key or not value:
+                message = "مثال: /remember شهر=تهران"
+                if json_mode:
+                    _print_json({"type": "error", "message": message})
+                else:
+                    print(message)
+            else:
+                store.remember(key, value)
+                if json_mode:
+                    _print_json({"type": "remember", "key": key, "value": value})
+                else:
+                    print(f"«{key}» در حافظه ثبت شد.")
+    elif command == "/tools":
+        items = [
+            {"name": name, "summary": _summary(func) or TOOL_HINTS.get(name, "")}
+            for name, func in tools.TOOL_SPECS.items()
+        ]
+        if json_mode:
+            _print_json({"type": "tools", "tools": items})
+        else:
+            for item in items:
+                print(f"  {item['name']:<13} {item['summary']}")
     elif command == "/use":
         if not arg or not valid_model_name(arg):
             print("نام مدل درست نیست. مثال: /use qwen2.5:3b")
@@ -164,7 +291,7 @@ def _handle_command(line: str, session_id: str) -> tuple[bool, str]:
                 store.save_settings({"provider": "ollama", "ollama_model": arg})
                 print(f"مدل فعال: {arg}")
     elif command == "/status":
-        _show_status(store.load_settings())
+        _show_status(store.load_settings(), json_mode=json_mode)
     elif command == "/system":
         if not arg:
             current = (store.load_settings().get("system_prompt") or "").strip()
@@ -194,6 +321,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--session", help="ادامهٔ یک نشست با شناسه")
     parser.add_argument("--new", action="store_true", help="نشست تازه بساز")
     parser.add_argument("--system-file", help="فایل دستور سیستمی (UTF-8) برای جایگزینی پیش‌فرض")
+    parser.add_argument("--json", action="store_true", help="خروجی NDJSON برای اسکریپت‌نویسی")
     args = parser.parse_args(argv)
 
     if args.list_models:
@@ -229,7 +357,21 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.message:
-            chat_once(args.message, session_id)
+            chat_once(args.message, session_id, json_mode=args.json)
+            return 0
+
+        if args.json:
+            # بدون بنر و پرامپت: هر خط ورودی یک پیام (یا دستور اسلش) است و رخدادها NDJSON می‌آیند.
+            for raw in sys.stdin:
+                line = raw.strip()
+                if not line:
+                    continue
+                if line.startswith("/"):
+                    keep_going, session_id = _handle_command(line, session_id, True)
+                    if not keep_going:
+                        return 0
+                    continue
+                chat_once(line, session_id, json_mode=True)
             return 0
 
         print(_paint(f"دستیار دیجیتال — چت خط فرمان  ({session_id})", BOLD))
@@ -243,7 +385,7 @@ def main(argv: list[str] | None = None) -> int:
             if not line:
                 continue
             if line.startswith("/"):
-                keep_going, session_id = _handle_command(line, session_id)
+                keep_going, session_id = _handle_command(line, session_id, args.json)
                 if not keep_going:
                     return 0
                 continue
