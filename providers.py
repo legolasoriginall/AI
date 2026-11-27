@@ -294,6 +294,158 @@ class Brain:
             system,
         )
 
+    # ------------------------------------------------------------------ استریم
+    def stream_chat(self, messages: List[Dict[str, str]], system: str = "") -> Iterator[str]:
+        """متن پاسخ را تکه‌تکه برمی‌گرداند؛ اولین ارائه‌دهندهٔ آماده که جواب بدهد برنده است."""
+        chain = self._chain()
+        errors: List[str] = []
+        for name in chain:
+            emitted = False
+            try:
+                for chunk in self._stream_provider(name, messages, system):
+                    if chunk:
+                        emitted = True
+                        yield chunk
+                return
+            except Exception as exc:  # noqa: BLE001 - خطای یک ارائه‌دهنده نباید کل زنجیره را بشکند
+                errors.append(f"{name}: {exc}")
+                if emitted:
+                    break
+        raise ProviderError("هیچ مدلی پاسخ نداد → " + " | ".join(errors))
+
+    def _stream_provider(
+        self, name: str, messages: List[Dict[str, str]], system: str
+    ) -> Iterator[str]:
+        if name == "gemini":
+            return self._gemini_stream(messages, system)
+        if name == "ollama":
+            return self._ollama_stream(messages, system)
+        if name == "openai":
+            return self._openai_stream(
+                self.settings.get("openai_base_url") or "https://api.openai.com/v1",
+                self.settings.get("model") or "gpt-4o-mini",
+                self.settings.get("openai_api_key", ""),
+                messages,
+                system,
+            )
+        if name == "pollinations":
+            return self._openai_stream(
+                "https://text.pollinations.ai", "openai", "", messages, system, auth=False
+            )
+        profile = free_api_profile(name)
+        if profile:
+            return self._openai_stream(
+                profile["base_url"],
+                profile["model"],
+                self.settings.get(profile["key_setting"], ""),
+                messages,
+                system,
+            )
+        raise RuntimeError(f"ارائه‌دهندهٔ ناشناخته: {name}")
+
+    def _ollama_model(self) -> str:
+        models = ollama_models(self.ollama_url)
+        if not models:
+            raise RuntimeError("Ollama در دسترس نیست")
+        model = self.settings.get("ollama_model") or ""
+        return model if model in models else best_ollama_model(models)
+
+    def _ollama_stream(
+        self, messages: List[Dict[str, str]], system: str
+    ) -> Iterator[str]:
+        payload = {
+            "model": self._ollama_model(),
+            "messages": ([{"role": "system", "content": system}] if system else []) + messages,
+            "stream": True,
+            "options": {"temperature": self.temperature},
+        }
+        with requests.post(
+            f"{self.ollama_url}/api/chat", json=payload, stream=True, timeout=(5, 300)
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                text = (data.get("message") or {}).get("content") or ""
+                if text:
+                    yield text
+
+    def _openai_stream(
+        self,
+        base_url: str,
+        model: str,
+        api_key: str,
+        messages: List[Dict[str, str]],
+        system: str,
+        auth: bool = True,
+    ) -> Iterator[str]:
+        payload = {
+            "model": model,
+            "messages": ([{"role": "system", "content": system}] if system else []) + messages,
+            "temperature": self.temperature,
+            "stream": True,
+        }
+        headers = {"Authorization": f"Bearer {api_key}"} if auth else {}
+        with requests.post(
+            f"{base_url.rstrip('/')}/chat/completions",
+            json=payload,
+            headers=headers,
+            stream=True,
+            timeout=(5, 300),
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines(decode_unicode=True):
+                if not line or not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                delta = ((obj.get("choices") or [{}])[0].get("delta") or {})
+                text = delta.get("content") or ""
+                if text:
+                    yield text
+
+    def _gemini_stream(
+        self, messages: List[Dict[str, str]], system: str
+    ) -> Iterator[str]:
+        key = self.settings.get("gemini_api_key", "")
+        model = self.settings.get("model") if str(self.settings.get("model", "")).startswith("gemini") else "gemini-2.0-flash"
+        contents = [
+            {"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]}
+            for m in messages
+        ]
+        payload: Dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": {"temperature": self.temperature},
+        }
+        if system:
+            payload["systemInstruction"] = {"parts": [{"text": system}]}
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model}:streamGenerateContent?alt=sse&key={key}"
+        )
+        with requests.post(url, json=payload, stream=True, timeout=(5, 300)) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines(decode_unicode=True):
+                if not line or not line.startswith("data:"):
+                    continue
+                try:
+                    obj = json.loads(line[5:].strip())
+                except json.JSONDecodeError:
+                    continue
+                for part in ((obj.get("candidates") or [{}])[0].get("content") or {}).get("parts", []):
+                    text = part.get("text") or ""
+                    if text:
+                        yield text
+
     def _gemini(self, messages: List[Dict[str, str]], system: str) -> str:
         key = self.settings.get("gemini_api_key", "")
         model = self.settings.get("model") if str(self.settings.get("model", "")).startswith("gemini") else "gemini-2.0-flash"
