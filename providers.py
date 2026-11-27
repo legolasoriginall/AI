@@ -24,6 +24,79 @@ MODEL_CATALOG: List[Dict[str, Any]] = [
 
 MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9._:\-/]{1,80}$")
 
+# سرویس‌های ابری رایگان سازگار با OpenAI؛ هر کدام کلید خودش را در .env دارد.
+FREE_API_PROFILES: List[Dict[str, str]] = [
+    {
+        "id": "groq",
+        "label": "Groq (سهمیهٔ رایگان)",
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.3-70b-versatile",
+        "key_setting": "groq_api_key",
+    },
+    {
+        "id": "openrouter-free",
+        "label": "OpenRouter (مدل‌های free)",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "key_setting": "openrouter_api_key",
+    },
+]
+
+PARAM_RE = re.compile(r"(?:^|[:_\-])(\d+(?:\.\d+)?)b(?=$|[:_\-.])", re.I)
+QUALITY_ORDER = ("qwen", "llama", "gemma", "mistral", "phi")
+
+
+def _ram_bytes(path: str = "/proc/meminfo") -> int:
+    """کل رم دستگاه؛ روی لینوکس از /proc خوانده می‌شود."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError):
+        return 0
+    return 0
+
+
+def model_billions(name: str) -> float:
+    """اندازهٔ تقریبی مدل از نامش (مثل qwen2.5:7b → 7)."""
+    match = PARAM_RE.search(name or "")
+    return float(match.group(1)) if match else 0.0
+
+
+def model_rank(name: str) -> tuple:
+    lowered = (name or "").lower()
+    family = next((index for index, key in enumerate(QUALITY_ORDER) if key in lowered), len(QUALITY_ORDER))
+    return (model_billions(lowered), -family)
+
+
+def best_ollama_model(models: List[str], ram_bytes: int | None = None) -> str:
+    """بهترین مدل نصب‌شده بر اساس کیفیت و رم موجود؛ اگر هیچ‌کدام جا نشد، سبک‌ترین."""
+    names = [name for name in (models or []) if name]
+    if not names:
+        return ""
+    ram = _ram_bytes() if ram_bytes is None else ram_bytes
+    budget_gb = (ram / (1024 ** 3)) * 0.6 if ram else 0.0
+
+    def fits(name: str) -> bool:
+        if not budget_gb:
+            return True
+        return model_billions(name) * 0.8 + 1.2 <= budget_gb
+
+    for name in sorted(names, key=model_rank, reverse=True):
+        if fits(name):
+            return name
+    return sorted(names, key=model_rank)[0]
+
+
+def free_api_profiles(settings: Dict[str, Any]) -> List[Dict[str, str]]:
+    """سرویس‌های رایگانی که کلیدشان تنظیم شده است."""
+    return [profile for profile in FREE_API_PROFILES if settings.get(profile["key_setting"])]
+
+
+def free_api_profile(provider_id: str) -> Dict[str, str] | None:
+    return next((profile for profile in FREE_API_PROFILES if profile["id"] == provider_id), None)
+
 
 def ollama_models(base_url: str) -> List[str]:
     """فهرست مدل‌های نصب‌شده روی Ollama؛ در صورت در دسترس نبودن، لیست خالی."""
@@ -108,7 +181,9 @@ class Brain:
             "ollama_url": self.ollama_url,
             "ollama_models": models,
             "ollama_ready": bool(models),
+            "best_local_model": best_ollama_model(models),
             "gemini_ready": bool(self.settings.get("gemini_api_key")),
+            "free_providers": [profile["id"] for profile in free_api_profiles(self.settings)],
             "openai_ready": bool(self.settings.get("openai_api_key")),
             "public_fallback": bool(self.settings.get("allow_public_fallback")),
         }
@@ -120,6 +195,8 @@ class Brain:
             "openai": bool(self.settings.get("openai_api_key")),
             "pollinations": bool(self.settings.get("allow_public_fallback")),
         }
+        for profile in FREE_API_PROFILES:
+            available[profile["id"]] = bool(self.settings.get(profile["key_setting"]))
         chosen = self.settings.get("provider", "auto")
         if chosen != "auto":
             if not available.get(chosen):
@@ -128,13 +205,14 @@ class Brain:
                     "کلید/سرویس مربوطه را بررسی کنید یا حالت auto را انتخاب کنید."
                 )
             return [chosen]
-        order = ["gemini", "ollama", "openai", "pollinations"]
+        # رایگان‌ها اول: مدل محلی، بعد Gemini و سرویس‌های رایگان، بعد سرویس پولی/عمومی.
+        order = ["ollama", "gemini"] + [profile["id"] for profile in FREE_API_PROFILES] + ["openai", "pollinations"]
         chain = [name for name in order if available[name]]
         if not chain:
             raise ProviderError(
                 "هیچ مدلی در دسترس نیست. برای حالت آفلاین Ollama را اجرا و یک مدل نصب کنید "
-                "(مثلاً: ollama pull llama3.2). برای حالت آنلاین GEMINI_API_KEY یا "
-                "OPENAI_API_KEY و OPENAI_BASE_URL را در .env بگذارید."
+                "(مثلاً: ollama pull qwen2.5:3b). برای حالت آنلاین یکی از GEMINI_API_KEY، "
+                "GROQ_API_KEY یا OPENROUTER_API_KEY را در .env بگذارید."
             )
         return chain
 
@@ -152,6 +230,9 @@ class Brain:
                     return self._openai(messages, system)
                 if name == "pollinations":
                     return self._pollinations(messages, system)
+                profile = free_api_profile(name)
+                if profile:
+                    return self._free_api(profile, messages, system)
             except Exception as exc:  # noqa: BLE001 - هر خطایی باید به ارائه‌دهندهٔ بعدی برود
                 errors.append(f"{name}: {exc}")
         raise ProviderError("هیچ مدلی پاسخ نداد → " + " | ".join(errors))
@@ -160,15 +241,11 @@ class Brain:
     def _ollama(self, messages: List[Dict[str, str]], system: str) -> str:
         model = self.settings.get("ollama_model") or ""
         models = ollama_models(self.ollama_url)
-        if not model:
-            if not models:
-                raise RuntimeError("Ollama در دسترس نیست")
-            model = models[0]
-        elif model not in models:
-            raise RuntimeError(
-                f"مدل فعال «{model}» دیگر روی این دستگاه نصب نیست. "
-                "از دکمهٔ مدل‌ها یکی از مدل‌های نصب‌شده را انتخاب کنید یا همان مدل را دوباره دانلود کنید."
-            )
+        if not models:
+            raise RuntimeError("Ollama در دسترس نیست")
+        if model not in models:
+            # انتخاب خودکار بهترین مدل نصب‌شده، حتی اگر مدل ذخیره‌شده حذف شده باشد.
+            model = best_ollama_model(models)
         payload = {
             "model": model,
             "messages": ([{"role": "system", "content": system}] if system else []) + messages,
@@ -179,18 +256,43 @@ class Brain:
         resp.raise_for_status()
         return (resp.json().get("message") or {}).get("content", "")
 
-    def _openai(self, messages: List[Dict[str, str]], system: str) -> str:
-        base = (self.settings.get("openai_base_url") or "https://api.openai.com/v1").rstrip("/")
-        model = self.settings.get("model") or "gpt-4o-mini"
+    def _openai_compatible(
+        self,
+        base_url: str,
+        model: str,
+        api_key: str,
+        messages: List[Dict[str, str]],
+        system: str,
+    ) -> str:
         payload = {
             "model": model,
             "messages": ([{"role": "system", "content": system}] if system else []) + messages,
             "temperature": self.temperature,
         }
-        headers = {"Authorization": f"Bearer {self.settings.get('openai_api_key', '')}"}
-        resp = requests.post(f"{base}/chat/completions", json=payload, headers=headers, timeout=180)
+        headers = {"Authorization": f"Bearer {api_key}"}
+        resp = requests.post(
+            f"{base_url.rstrip('/')}/chat/completions", json=payload, headers=headers, timeout=180
+        )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
+
+    def _openai(self, messages: List[Dict[str, str]], system: str) -> str:
+        base = self.settings.get("openai_base_url") or "https://api.openai.com/v1"
+        model = self.settings.get("model") or "gpt-4o-mini"
+        return self._openai_compatible(
+            base, model, self.settings.get("openai_api_key", ""), messages, system
+        )
+
+    def _free_api(
+        self, profile: Dict[str, str], messages: List[Dict[str, str]], system: str
+    ) -> str:
+        return self._openai_compatible(
+            profile["base_url"],
+            profile["model"],
+            self.settings.get(profile["key_setting"], ""),
+            messages,
+            system,
+        )
 
     def _gemini(self, messages: List[Dict[str, str]], system: str) -> str:
         key = self.settings.get("gemini_api_key", "")

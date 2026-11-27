@@ -16,12 +16,14 @@ DB_PATH = DATA_DIR / "assistant.db"
 SETTINGS_PATH = BASE_DIR / ".settings.json"
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
-    "provider": "auto",  # auto | ollama | gemini | openai | pollinations
+    "provider": "auto",  # auto | ollama | gemini | groq | openrouter-free | openai | pollinations
     "ollama_url": os.getenv("OLLAMA_URL", "http://localhost:11434"),
     "ollama_model": os.getenv("OLLAMA_MODEL", ""),
     "openai_base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "model": os.getenv("ONLINE_MODEL", ""),
     "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
+    "groq_api_key": os.getenv("GROQ_API_KEY", ""),
+    "openrouter_api_key": os.getenv("OPENROUTER_API_KEY", ""),
     "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
     "temperature": 0.3,
     "max_steps": 8,
@@ -186,7 +188,12 @@ def load_settings() -> Dict[str, Any]:
 def save_settings(new_settings: Dict[str, Any]) -> Dict[str, Any]:
     settings = load_settings()
     for key, value in (new_settings or {}).items():
-        if key in DEFAULT_SETTINGS and key not in ("gemini_api_key", "openai_api_key"):
+        if key in DEFAULT_SETTINGS and key not in (
+            "gemini_api_key",
+            "groq_api_key",
+            "openrouter_api_key",
+            "openai_api_key",
+        ):
             settings[key] = value
     SETTINGS_PATH.write_text(
         json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
