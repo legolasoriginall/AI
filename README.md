@@ -65,19 +65,182 @@ python3 cli.py --system-file prompt.md   # دستور سیستمی از فایل
 
 `cli.py` خودش `.env` را می‌خواند (بدون `python-dotenv`)، ابزارها را در همان لحظه اجرا می‌کند و خروجی آن‌ها را زیر پاسخ نشان می‌دهد.
 
-## حالت آفلاین (Ollama)
+## مدل‌های باز محلی در خط فرمان
+
+همهٔ چیزهایی که برای اجرای یک مدل باز روی دستگاه خودت لازم است: از نصب تا اتصال به همین پروژه. بدون کلید API و بدون فرستادن گفتگو به بیرون.
+
+### ۱ · نصب Ollama
+
+بستهٔ رسمی را بگیر و روی `/usr` باز کن (بدون پایپ‌کردن اسکریپت به شل):
+
+```bash
+# x86_64
+curl -fsSL -o /tmp/ollama.tar.zst https://ollama.com/download/ollama-linux-amd64.tar.zst
+sudo tar -xf /tmp/ollama.tar.zst -C /usr
+
+# ARM64 (مثلاً سرورهای Ampere)
+curl -fsSL -o /tmp/ollama.tar.zst https://ollama.com/download/ollama-linux-arm64.tar.zst
+sudo tar -xf /tmp/ollama.tar.zst -C /usr
+
+# کارت AMD: بستهٔ ROCm را هم روی همان مسیر باز کن
+curl -fsSL -o /tmp/ollama-rocm.tar.zst https://ollama.com/download/ollama-linux-amd64-rocm.tar.zst
+sudo tar -xf /tmp/ollama-rocm.tar.zst -C /usr
+```
+
+اگر `tar` از zstd پشتیبانی نکرد: `sudo apt install -y zstd` (یا `sudo dnf install -y zstd`).
+
+بررسی نصب:
+
+```bash
+ollama -v
+```
+
+اجرای موقت (تا وقتی ترمینال باز است):
 
 ```bash
 ollama serve
-ollama pull qwen2.5:3b
 ```
 
-بدون هیچ کلیدی کار می‌کند. اگر آدرس Ollama جای دیگری است، در `.env` بگذارید:
+اجرای دائمی با systemd — یک فایل واحد بساز:
+
+```ini
+# /etc/systemd/system/ollama.service
+[Unit]
+Description=Ollama Service
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/ollama serve
+User=ollama
+Group=ollama
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo useradd -r -s /bin/false -U -m -d /usr/share/ollama ollama
+sudo systemctl daemon-reload
+sudo systemctl enable --now ollama
+systemctl status ollama --no-pager
+```
+
+پیش‌فرض Ollama فقط روی `127.0.0.1:11434` گوش می‌دهد؛ برای همین پروژه همین کافی است.
+
+### ۲ · انتخاب مدل
+
+قاعدهٔ سرانگشتی: در کوانتیزهٔ پیش‌فرض (Q4_K_M) هر یک میلیارد پارامتر حدود ۰٫۸ گیگابایت فایل مدل است و هنگام اجرا کمی بیشتر رم می‌خواهد. مدل باید در رم جا شود، وگرنه بخشی روی CPU/دیسک می‌افتد و کند می‌شود. خود پروژه در حالت `auto` بزرگ‌ترین مدلی را برمی‌دارد که در ۶۰٪ رم جا شود.
+
+| مدل | حجم دانلود | رم پیشنهادی | مناسب برای |
+| --- | --- | --- | --- |
+| `llama3.2:1b` | ۱٫۳ GB | ۸ GB | سبک‌ترین؛ دستگاه کم‌رم |
+| `llama3.2:3b` | ۲٫۰ GB | ۸ GB | تعادل کیفیت و سرعت |
+| `qwen2.5:3b` | ۱٫۹ GB | ۸ GB | فارسی و عربی بهتر |
+| `gemma2:2b` | ۱٫۶ GB | ۸ GB | پاسخ کوتاه و مرتب |
+| `qwen2.5:7b` | ۴٫۷ GB | ۱۶ GB | کد و متن فارسی باکیفیت‌تر |
+| `llama3.1:8b` | ۴٫۹ GB | ۱۶ GB | کارهای طولانی و عمومی |
+
+```bash
+ollama list                 # مدل‌های نصب‌شده و حجمشان
+ollama show qwen2.5:3b      # پارامترها، کوانتیزه و قالب پرامپت
+ollama ps                   # مدل‌های در حال اجرا و تقسیم CPU/GPU
+ollama rm llama3.2:1b       # آزادکردن فضا
+```
+
+نام دقیق کوانتیزه را می‌توانی صریح بدهی: `qwen2.5:3b-instruct-q8_0` (کیفیت بالاتر، حجم بیشتر) یا `qwen2.5:3b-instruct-q4_K_M` (سبک‌تر). ابزار `install_model` خودِ پروژه فقط نام‌های فهرست بالا را نصب می‌کند؛ برای بقیه از `ollama pull` استفاده کن.
+
+### ۳ · گرفتن و اجرای مدل
+
+```bash
+ollama pull qwen2.5:3b
+ollama run qwen2.5:3b "در یک خط بگو لینوکس چیست"
+```
+
+اولین پاسخ کند است چون وزن‌ها از دیسک خوانده می‌شوند؛ پاسخ‌های بعدی سریع‌ترند. برای گفتگوی تعاملی همان `ollama run qwen2.5:3b` را بدون آرگومان بزن (خروج با `/bye`).
+
+بررسی سرویس و API (همان دو مسیری که پروژه صدا می‌زند):
+
+```bash
+curl -s http://localhost:11434/api/tags
+
+curl -s http://localhost:11434/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"qwen2.5:3b","messages":[{"role":"user","content":"سلام"}],"stream":false}'
+```
+
+پاسخ دوم باید یک آبجکت JSON با `message.content` باشد. اگر `connection refused` گرفتی، سرویس بالا نیست؛ اگر `model not found` گرفتی، اسم مدل در `ollama list` را بگذار.
+
+### ۴ · اتصال به پروژه
+
+در `.env` همان پوشهٔ `cli.py`:
 
 ```env
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:3b
 ```
+
+بعد از این، پروژه اول سراغ همین مدل می‌رود و تا وقتی پاسخ بدهد سراغ سرویس‌های آنلاین نمی‌رود:
+
+```bash
+python3 cli.py --list-models
+# Ollama: http://localhost:11434
+#   • qwen2.5:3b (1.9 GB)
+# پیشنهاد: llama3.2:1b, llama3.2:3b, qwen2.5:3b, ...
+
+python3 cli.py --provider ollama --ollama-model qwen2.5:3b
+```
+
+داخل گفتگو:
+
+```
+/models            فهرست نصب‌شده‌ها + پیشنهاد دانلود
+/use qwen2.5:3b    همین مدل را فعال کن (در تنظیمات می‌ماند)
+/status            ارائه‌دهنده و مدل فعال
+```
+
+همین کارها را می‌توانی به خود عامل بسپاری: «چه مدل‌هایی نصب است؟»، «مدل qwen2.5:3b را نصب کن»، «مدل فعال را عوض کن» (ابزارهای `list_models`، `install_model`، `use_model`).
+
+در Docker روی لینوکس، `localhost` داخل کانتینر به میزبان اشاره نمی‌کند؛ یکی از این دو را بگذار:
+
+```bash
+docker run --rm -it --network=host --env-file .env -v "$PWD/workspace:/app/workspace" assistant
+
+# یا بدون host network:
+docker run --rm -it --add-host=host.docker.internal:host-gateway \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  --env-file .env -v "$PWD/workspace:/app/workspace" assistant
+```
+
+### ۵ · تنظیم سرعت و حافظه
+
+این‌ها را با `sudo systemctl edit ollama` در بخش `[Service]` بگذار، بعد `sudo systemctl daemon-reload && sudo systemctl restart ollama`:
+
+```ini
+[Service]
+Environment="OLLAMA_KEEP_ALIVE=30m"
+Environment="OLLAMA_MODELS=/srv/ollama/models"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+```
+
+- `OLLAMA_KEEP_ALIVE` (پیش‌فرض `5m`): مدل بعد از آخرین استفاده چند دقیقه در رم بماند؛ مقدار بیشتر یعنی پاسخ اولِ سریع‌تر و رم اشغال‌تر. `-1` یعنی همیشه بمان.
+- `OLLAMA_MODELS`: جای فایل‌های مدل؛ اگر خانهٔ کاربر `ollama` روی دیسک کوچک است، به مسیر بزرگ‌تر منتقلش کن.
+- `OLLAMA_MAX_LOADED_MODELS`: با ۱ مدل، رم کمتری اشغال می‌شود؛ برای چند مدل هم‌زمان بالاترش ببر.
+- `OLLAMA_CONTEXT_LENGTH`: پنجرهٔ متن؛ برای کد و فایل‌های بزرگ بالاتر (مثلاً `8192`) بگذار و بدان که رم بیشتری می‌خواهد.
+
+`ollama ps` ستون `PROCESSOR` را نشان می‌دهد؛ اگر `100% CPU` دیدی یعنی مدل در حافظهٔ کارت جا نشده و باید مدل کوچک‌تر یا کوانتیزهٔ سبک‌تر بگیری.
+
+### ۶ · عیب‌یابی
+
+| نشانه | علت و راه‌حل |
+| --- | --- |
+| `connection refused` روی ۱۱۴۳۴ | سرویس بالا نیست: `systemctl start ollama` یا `ollama serve` |
+| `model not found` | اسم دقیق از `ollama list` را بده؛ با `ollama pull` نصبش کن |
+| پاسخ اول خیلی کند | وزن‌ها سرد هستند: `OLLAMA_KEEP_ALIVE=30m` یا یک `ollama run` گرم‌کننده |
+| کشته‌شدن یا `out of memory` | مدل بزرگ‌تر از رم است: مدل کوچک‌تر یا کوانتیزهٔ `q4` |
+| پورت ۱۱۴۳۴ اشغال است | `OLLAMA_HOST=127.0.0.1:11435` و همان آدرس را در `OLLAMA_URL` بگذار |
+| فایل‌ها در `/usr/share/ollama` جا نمی‌شوند | `OLLAMA_MODELS` را به مسیر دیگر بده و مالکیت را به کاربر `ollama` بده |
 
 ## حالت آنلاین
 
